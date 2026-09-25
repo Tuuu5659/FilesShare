@@ -1,44 +1,66 @@
-// 蝴蝶影视 直连/代理分流 —— BettBox / Stash 覆写脚本（JavaScript）
-// 用法：BettBox → 脚本/覆写 → 新增 → 粘贴本文件内容（或填本文件的 raw 直链）→ 保存并开启
-// 作用：把两份 Loon 规则注册为 rule-provider，并在规则最前面插入两条 RULE-SET
+/**
+ * 蝴蝶影视 直连/代理分流 —— Bettbox JS 覆写脚本
+ *
+ * 用法：Bettbox → 脚本 → 右下角「+」新建 → 把本文件【全部内容】粘进去 → 保存 → 选中/开启本脚本
+ * 重要：Bettbox 同一时刻只生效“当前脚本”。如果你已经在用别的脚本（例如 Emby直连），
+ *      不要新建，改为把下面 markStart ~ markEnd 之间的代码并入那个脚本的 main() 里。
+ */
 
-const BASE = 'https://raw.githubusercontent.com/Tuuu5659/FilesShare/main'
+const Compatible_With_Bettbox = { ruleOptionsEnable: true };
 
-const PROVIDERS = {
-  hudieyingshi_direct: BASE + '/hudieyingshi_direct.list',
-  hudieyingshi_proxy: BASE + '/hudieyingshi_proxy.list',
-}
+// Bettbox 可视化开关（脚本 → 该脚本 → 自定义 里可开关）
+const ruleOptionsEnable = {
+  蝴蝶分流: true,
+};
 
-let handler = async (config) => {
-  // 1) 注册规则集（text + classical，兼容 DOMAIN-SUFFIX 与 IP-CIDR 混排）
-  config['rule-providers'] = config['rule-providers'] || {}
-  Object.keys(PROVIDERS).forEach((name) => {
+const HD_BASE = 'https://raw.githubusercontent.com/Tuuu5659/FilesShare/main';
+const HD_PROVIDERS = {
+  hudieyingshi_direct: HD_BASE + '/hudieyingshi_direct.list',
+  hudieyingshi_proxy: HD_BASE + '/hudieyingshi_proxy.list',
+};
+
+function main(config) {
+  // >>>>>>> markStart
+  if (typeof ruleOptionsEnable !== 'undefined' && ruleOptionsEnable.蝴蝶分流 === false) {
+    return config;
+  }
+
+  config['proxy-groups'] = config['proxy-groups'] || [];
+  config['rule-providers'] = config['rule-providers'] || {};
+  config.rules = config.rules || [];
+
+  // 1) 注册规则集：text + classical，兼容 DOMAIN-SUFFIX 与 IP-CIDR 混排
+  Object.keys(HD_PROVIDERS).forEach(function (name) {
     config['rule-providers'][name] = {
       type: 'http',
       format: 'text',
       behavior: 'classical',
-      url: PROVIDERS[name],
+      url: HD_PROVIDERS[name],
       path: './rulesets/' + name + '.txt',
       interval: 86400,
-    }
-  })
+    };
+  });
 
-  // 2) 代理规则的目标：取订阅里的第一个策略组（一般是「节点选择」），取不到就用 PROXY
-  let proxyTarget = 'PROXY'
-  try {
-    const g = config['proxy-groups']
-    if (g && g.length && g[0].name) proxyTarget = g[0].name
-  } catch (e) {}
+  // 2) 代理规则的目标策略组：优先挑名字像“节点选择”的组，否则取第一个自建组
+  var proxyTarget = 'DIRECT';
+  var preferred = '';
+  for (var i = 0; i < config['proxy-groups'].length; i++) {
+    var g = config['proxy-groups'][i];
+    if (!g || !g.name) continue;
+    if (g.name === 'GLOBAL' || g.name === 'DIRECT' || g.name === 'REJECT' || g.name === 'PASS') continue;
+    if (!preferred) preferred = g.name;
+    if (/选择|节点|自动|代理|proxy/i.test(g.name)) { preferred = g.name; break; }
+  }
+  if (preferred) proxyTarget = preferred;
 
-  // 3) 插入规则（放在最前面，保证优先级；先删同名的旧规则，避免重复）
-  const want = [
+  // 3) 规则插到最前面（先删同名旧规则，保证重复执行不会叠加）
+  var want = [
     'RULE-SET,hudieyingshi_direct,DIRECT',
     'RULE-SET,hudieyingshi_proxy,' + proxyTarget,
-  ]
-  const old = config.rules || []
-  config.rules = want.concat(old.filter((r) => want.indexOf(r) === -1))
+  ];
+  var rest = config.rules.filter(function (r) { return want.indexOf(r) === -1; });
+  config.rules = want.concat(rest);
+  // <<<<<<< markEnd
 
-  return config
+  return config;
 }
-
-exports = handler
