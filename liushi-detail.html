@@ -642,6 +642,20 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
   }
 
   /* ---------- 播放 / 收藏 / 原生 ---------- */
+  // 观看历史本地记录，与 home 页共用存储 gyz_history_v1
+  function recordHistoryLocal(o) {
+    try {
+      var k = (o.siteKey || 'x') + '|' + (o.vodId || '');
+      var list = JSON.parse(localStorage.getItem('gyz_history_v1') || '[]');
+      if (!Array.isArray(list)) list = [];
+      list = list.filter(function (h) { return h.k !== k; });
+      o.k = k;
+      o.t = o.t || Date.now();
+      list.unshift(o);
+      localStorage.setItem('gyz_history_v1', JSON.stringify(list.slice(0, 100)));
+    } catch (e) {}
+  }
+
   function playEpisode(ep) {
     try {
       if (app.pending || !ep) return;
@@ -660,6 +674,13 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
       fm.vod(srcKey, String(item.vodId || ''), item.name || '', item.pic || '', payload).then(function () {
         app.pending = false;
         setPending(false);
+        recordHistoryLocal({
+          siteKey: srcKey,
+          site: (app.info && app.info.source && app.info.source.name) || srcKey || '播放',
+          vodId: String(item.vodId || ''),
+          title: item.name || '', pic: item.pic || '',
+          remarks: item.remarks || '', content: payload.content || '', t: Date.now()
+        });
       }).catch(function (err) {
         app.pending = false;
         setPending(false);
