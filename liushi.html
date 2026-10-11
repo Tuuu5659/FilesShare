@@ -627,7 +627,9 @@ const LAYOUT_MODES = ['poster', 'compact', 'feed', 'list_img', 'list_text'];
 // 冷启动空态自愈：首页 tab 首次拉空（后台推荐还在采样）或桥首次超时/抖动 →
 // 隔 EMPTY_RETRY_DELAY 自动重试（期间保持转圈不落「暂无内容」）；重试耗尽且仍停在首个 tab
 // 则顺延到下一个分类，保证屏幕一定有内容。
-const EMPTY_RETRY_MAX = 2;
+// 后端推荐采样预算约 8s（REC_BUDGET），重试窗口必须覆盖它，否则在采样完成前就放弃 →
+// 用户看到「点击重试」。MAX=5 累计 1.5+3+4.5+6+7.5=22.5s，足够盖住冷启动首次采样。
+const EMPTY_RETRY_MAX = 5;
 const EMPTY_RETRY_DELAY = 1500;
 
 function loadLayout() {
@@ -1178,11 +1180,17 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       } catch (e) {}
     },
     async onSourcePillClick() {
-      // WebHTV fm 桥单源模式：跳壳子原生源选择界面（theme.json 权限 app.openSite）
-      try {
-        if (window.fm && typeof fm.openSite === 'function') { await fm.openSite(); return; }
-      } catch(e) {}
-      this.showModal = true; // 无桥兜底：皮肤内选择
+      // WebHTV fm 桥单源模式：跳壳子原生源选择界面（theme.json 权限 app.openSite）。
+      // 用户要求「每次点击都进原生选择界面」，绝不退回皮肤内那个全 0 的兜底弹窗。
+      // openSite 偶发失败多半是桥尚未就绪 / 瞬时限流 → 先等桥就绪再短重试，三次仍失败才兜底。
+      try { await fmReady(); } catch(e) {}
+      for (let i = 0; i < 3; i++) {
+        try {
+          if (window.fm && typeof fm.openSite === 'function') { await fm.openSite(); return; }
+        } catch(e) {}
+        await new Promise(r => setTimeout(r, 180));
+      }
+      this.showModal = true; // 三次仍失败才兜底：皮肤内选择
     },
     async pickSite(s, type) {
       this.sourceType = type;
@@ -1297,13 +1305,11 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
     },
 
     clickCard(v) {
-      if (v.vod_tag === 'folder') {
-        this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
-        try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
-        this.baseTab = this.t; this.slideDir = 'from-right';
-        this.t = v.vod_id; this.loadFolder(v.vod_id);
-        this.$nextTick(() => { const el = document.getElementById('chip-' + this.baseTab); if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); });
-      } else {
+      // v2 主题下 WebHomeVodContract.items() 丢弃 vod_tag → 不能只靠 v.vod_tag 判 folder；
+      // 后端 folder 卡固定带 vod_remarks='📁 分类'（remarks 在 v2 白名单内，幸存）→ 用它兜底识别。
+      const isFolder = v.vod_tag === 'folder' || v.vod_remarks === '📁 分类';
+      if (isFolder) { this.openFolderCard(v); return; }
+      {
         (async () => {
         const payload = { siteKey: this.currentSite || '', vodId: v.vod_id, title: v.vod_name || '', pic: v.vod_pic || '', content: v.vod_content || v.content || '', remarks: v.vod_remarks || v.vod_remark || '' };
         // 双模式自适应：v2 主题(manifest) 下 openDetail 打开流光详情页；
@@ -1331,6 +1337,67 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
         }
       })();
       }
+    },
+    async openFolderCard(v) {
+      // ⚠ v2 下 folder 卡的 vod_id（未经 issueType 签名）当 typeId 回传会被壳子拒
+      //   （Unknown type reference）→ 直接 loadFolder 必失败、一直加载不出来（本次 bug 根因）。
+      //   v2 下进入二级分类的唯一通道是 __sub__ 筛选回流：folder 卡 vod_name = 子分类名，
+      //   与 HOME filters __sub__ 组 value[].n 同源，匹配到壳子已签名的 value 塞进 selectedFilters
+      //   回流即直出该分类内容。
+      // ★ 关键：筛选组的 key/value 是「每次 HOME 调用现签的引用」，必须和当前 this.t 同一次签发
+      //   才对得上。页面缓存的 allFilters 可能来自更早一次 HOME（甚至没这个子源的组），
+      //   所以这里重新拉一次 HOME 拿「同批签发」的 classes + filters，用新引用做回流。
+      const baseName = String(v.vod_name || '').trim();
+      const myTid = this.t;   // 当前子源 tab 的（旧）引用，用来按序号定位新引用
+      const myIdx = this.categories.findIndex(c => String(c.type_id) === String(myTid));
+      let freshTid = myTid, freshKey = '', freshVal = '';
+      try {
+        const res = await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
+        const inc = (res && (res.class || res.classes || [])) || [];
+        const rf = (res && res.filters) || {};
+        // 按序号对齐：第 myIdx 个 class 的新 typeId 就是本子源这次的新引用
+        if (myIdx >= 0 && inc[myIdx]) {
+          freshTid = inc[myIdx].type_id || inc[myIdx].typeId || myTid;
+        }
+        const grps = (rf[String(freshTid)] || []).map(g => ({
+          key: g.key || '',
+          name: g.name || g.key || '',
+          value: (g.values || g.value || []).map(o => ({ v: (o.v !== undefined ? o.v : (o.value !== undefined ? o.value : '')), n: (o.n !== undefined ? o.n : (o.name !== undefined ? o.name : '')) }))
+        }));
+        let g = grps.find(x => String(x.key) === '__sub__' || String(x.name) === '子分类') || grps[0];
+        if (g && g.key && g.value.length) {
+          let m = g.value.find(o => String(o.n).trim() === baseName);
+          if (!m) m = g.value.find(o => baseName && (String(o.n).includes(baseName) || baseName.includes(String(o.n))));
+          if (m && String(m.v).trim() !== '') { freshKey = String(g.key); freshVal = String(m.v); }
+        }
+        // 顺带把新引用的 classes/filters 刷进页面（后续切 tab、筛选面板都用新引用）
+        if (inc.length === this.categories.length) {
+          this.categories = inc.map(c => Object.assign({}, c, {
+            type_id: c.type_id || c.typeId || '', type_name: c.type_name || c.typeName || '' }));
+          const af = {};
+          for (const k in rf) {
+            af[k] = (rf[k] || []).map(g => ({ key: g.key || '', name: g.name || g.key || '',
+              value: (g.values || g.value || []).map(o => ({ v: (o.v !== undefined ? o.v : (o.value !== undefined ? o.value : '')), n: (o.n !== undefined ? o.n : (o.name !== undefined ? o.name : '')) })) }));
+          }
+          this.allFilters = af;
+        }
+      } catch (e) { /* 重拉失败走兜底 */ }
+
+      this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
+      try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
+      this.slideDir = 'from-right';
+      if (freshKey && freshVal) {
+        // v2 正路：套 __sub__ 筛选值回流直出该分类
+        this.t = freshTid; this.baseTab = freshTid; this._fwTab = String(freshTid);
+        this.selectedFilters = { [freshKey]: freshVal };
+        await this.loadFolder(freshTid);
+      } else {
+        // 兜底：非 v2 / gyz 方案A → folder 卡 vod_id 原样下钻
+        this.baseTab = this.t;
+        this.selectedFilters = {};
+        this.t = v.vod_id; await this.loadFolder(v.vod_id);
+      }
+      this.$nextTick(() => { const el = document.getElementById('chip-' + this.baseTab); if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); });
     },
     async loadFolder(tid) {
       this.heroIdx = 0;
