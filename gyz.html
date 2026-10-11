@@ -9,7 +9,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 /* 状态栏安全区 */
-:root { --safe-top: env(safe-area-inset-top, 0); }
+/* 沉浸式安全区：默认 0，壳子 chromeMode=edge/immersive 时由 JS 激活 */
+:root { --safe-top: 0px; }
+html.safe-top-active { --safe-top: max(var(--fm-safe-top, 0px), env(safe-area-inset-top, 0px)); }
 body { padding-top: 0; }
 .topbar { padding-top: calc(var(--safe-top) + 10px); background: linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0)); }
 
@@ -157,7 +159,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
   <!-- 顶部栏：源选择、搜索、筛选快捷、风格、退出 -->
   <div class="topbar">
-    <div class="src-pill" @click="showModal=true">
+    <div class="src-pill" @click="onSourcePillClick">
       <span class="badge" :class="sourceType">{{sourceType}}</span>
       <span class="name">{{currentSiteName||'选择源'}}</span>
       <i class="fas fa-chevron-down"></i>
@@ -485,6 +487,23 @@ createApp({
   },
   async mounted() {
     try { await fmReady(); } catch(e) { console.error('fmReady failed:', e); }
+    // 沉浸式安全区适配（原版 eclipse 同款：仅 edge/immersive 启用）
+    const applyVp = (d) => {
+      d = d || {};
+      const mode = String(d.chromeMode || '').toLowerCase();
+      const st = Number(d.safeTop), sb = Number(d.statusBarHeight);
+      const has = (!isNaN(st) && st > 0) || (!isNaN(sb) && sb > 0);
+      const root = document.documentElement;
+      if ((mode === 'edge' || mode === 'immersive') && has && !(d.systemBarsHidden && ((isNaN(st)?0:st) <= 0) && ((isNaN(sb)?0:sb) <= 0))) root.classList.add('safe-top-active');
+      else root.classList.remove('safe-top-active');
+    };
+    try {
+      let vp = (window.fm && fm.ui && typeof fm.ui.getViewport === 'function') ? fm.ui.getViewport() : null;
+      if (vp && typeof vp.then === 'function') vp.then(applyVp).catch(() => applyVp({}));
+      else applyVp(vp || {});
+    } catch(e) { applyVp({}); }
+    window.addEventListener('fmviewport', (ev) => applyVp(ev && ev.detail));
+    window.addEventListener('fmresume', () => { try { this.init(); } catch(e) {} });
     this.loadExcludedSites();
     this.applyTheme();
     this.init();
@@ -685,6 +704,13 @@ createApp({
         else this.errorMsg = '未检测到可用的视频源，请先配置数据源';
       } catch(e) { this.errorMsg = String(e); }
     },
+    async onSourcePillClick() {
+      // WebHTV fm 桥单源模式：跳壳子原生源选择界面（theme.json 权限 app.openSite）
+      try {
+        if (window.fm && typeof fm.openSite === 'function') { await fm.openSite(); return; }
+      } catch(e) {}
+      this.showModal = true; // 无桥兜底：皮肤内选择
+    },
     async pickSite(s, type) {
       this.sourceType = type;
       this.currentSite = s.key;
@@ -796,6 +822,11 @@ createApp({
     closeAndRestore() { try { history.back(); } catch(e) {} }
   }
 }).mount('#app');
+/* 壳子重注入桥（切源/恢复）后刷新数据 */
+window.addEventListener('fmsdk', () => {
+  const app = document.querySelector('#app').__vue_app__;
+  try { if (app && app._instance && app._instance.proxy) app._instance.proxy.init(); } catch(e) {}
+});
 
 /* 日式竖排焦点图自动定时轮播 */
 setInterval(() => {
