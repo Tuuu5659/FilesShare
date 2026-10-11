@@ -237,6 +237,11 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
   'use strict';
   var D = document, W = window;
   var EPS = 40;
+  /* 壳子通过 evaluateJavascript 异步注入 window.fm。
+     本页 IIFE 是 'use strict'，严格模式下裸标识符 fm 未声明会抛
+     ReferenceError: fm is not defined（且 try/catch 会静默吞掉它，
+     导致页面走降级分支却不报错）。故显式声明，并在 boot 前赋值。 */
+  var fm = null;
 
   /* ---------- 主题（与首页共用 localStorage:gyz_theme） ---------- */
   var PRESET_THEMES = {
@@ -304,7 +309,8 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
   function refreshVp() {
     if (W.__fmViewport) { applyVp(W.__fmViewport); return; }
     try {
-      if (!W.fm || !fm.ui || typeof fm.ui.getViewport !== 'function') { applyVp({}); return; }
+      fm = W.fm;
+      if (!fm || !fm.ui || typeof fm.ui.getViewport !== 'function') { applyVp({}); return; }
       var r = fm.ui.getViewport();
       if (r && typeof r.then === 'function') r.then(function (v) { applyVp(v); }).catch(function () {});
       else applyVp(r || {});
@@ -558,7 +564,8 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
   /* ---------- 数据加载 ---------- */
   function boot() {
     try {
-      if (!W.fm || typeof fm.themeInfo !== 'function' || typeof fm.vodDetail !== 'function') {
+      fm = W.fm;
+      if (!fm || typeof fm.themeInfo !== 'function' || typeof fm.vodDetail !== 'function') {
         showError(new Error('未检测到壳子桥（请在 WebHTV 内打开本页）'));
         return;
       }
@@ -815,7 +822,7 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
     bind();
     var t0 = Date.now();
     (function wait() {
-      if (W.fm && typeof fm.themeInfo === 'function') { refreshVp(); boot(); return; }
+      if (W.fm && typeof W.fm.themeInfo === 'function') { refreshVp(); boot(); return; }
       if (Date.now() - t0 > 10000) { showError(new Error('等待壳子桥超时')); return; }
       W.setTimeout(wait, 200);
     })();
