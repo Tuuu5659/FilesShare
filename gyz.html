@@ -18,14 +18,14 @@ body { padding-top: 0; }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
 :root{
   --nav-h:74px;
-  --nav-inset:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom, 0px));
+  --nav-inset:min(calc(var(--nav-h) + 14px + env(safe-area-inset-bottom, 0px)), 120px);
   --accent:#FF6B35;--accent-text:#FFFFFF;--bg-1:#2a1108;--bg-2:#1a0f08;--bg-3:#160c06;
   --card-bg:#2a1810;--panel-bg:#20130c;--text:#FFFFFF;--text-sub:rgba(255,255,255,0.55);
   --line:rgba(255,255,255,0.08);--pill-bg:rgba(255,255,255,0.08);
   --pill-border:rgba(255,255,255,0.12);--input-bg:rgba(255,255,255,0.06);
 }
 html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg-2);}
-#app{position:relative;z-index:2;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:var(--nav-inset,0px);background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 40%,var(--bg-3) 100%);color:var(--text);}
+#app{position:relative;z-index:2;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 40%,var(--bg-3) 100%);color:var(--text);}
 
 /* 顶部：标题居中，筛选右对齐 */
 .tb-title{display:flex;align-items:center;gap:8px;min-width:0;flex:0 1 auto;max-width:72%;justify-content:center;cursor:pointer;}
@@ -104,7 +104,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .cat-item.active::after{content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:20px;height:3px;border-radius:2px;background:var(--accent);}
 
 /* 滚动区 */
-.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:30px;}
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-inset, 0px) + 12px);}
 .scroll-area::-webkit-scrollbar{display:none;}
 
 /* 沉浸式全宽焦点图：封面平铺整屏 + 自动循环 */
@@ -804,6 +804,7 @@ createApp({
       if (window.NativeBridge && window.NativeBridge.saveUserPreference) {
         if (window.NativeBridge && window.NativeBridge.saveUserPreference) window.NativeBridge.saveUserPreference(this.themeKey, this.layoutMode, t.bg1, '[]', false);
       }
+      try { localStorage.setItem('gyz_theme', this.themeKey); } catch (e) {}
     },
     selectPresetTheme(k) { if (!PRESET_THEMES[k]) return; this.themeKey = k; this.applyTheme(); },
     setLayout(m) { this.layoutMode = m; this.applyTheme(); },
