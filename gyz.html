@@ -954,11 +954,12 @@ createApp({
       } else {
         (async () => {
         const payload = { siteKey: this.currentSite || '', vodId: v.vod_id, title: v.vod_name || '', pic: v.vod_pic || '', content: v.vod_content || v.content || '', remarks: v.vod_remarks || v.vod_remark || '' };
-        try { await fm.openDetail(payload); }
-        catch (e1) {
-          try { await fm.vod(payload.siteKey, payload.vodId, payload.title, payload.pic, { content: payload.content, remarks: payload.remarks }); }
-          catch (e2) { alert('无法打开详情：' + e2); }
-        }
+        // 自定义网址是 v1 target（无 manifest）：navigation.openDetail 的 legacyAllowed=false，调用必被拒。
+        // 关键坑：被拒的调用照样占用 400ms 副作用限流槽位（HomeWebController.REMOTE_ACTION_INTERVAL_MS），
+        // 所以紧跟其后的 fm.vod 必被 RATE_LIMITED（legacy 码 "BUSY"）→ "无法打开详情：Error: BUSY"。
+        // 正解：直接调 player.playVod（legacyAllowed=true，服务端按 siteKey+vodId 自行解析，无需 playRef）。
+        try { await fm.vod(payload.siteKey, payload.vodId, payload.title, payload.pic, { content: payload.content, remarks: payload.remarks }); }
+        catch (e) { alert('无法打开详情：' + (e && e.message ? e.message : e)); }
       })();
       }
     },
