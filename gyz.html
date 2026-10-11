@@ -487,23 +487,37 @@ createApp({
   },
   async mounted() {
     try { await fmReady(); } catch(e) { console.error('fmReady failed:', e); }
-    // 沉浸式安全区适配（原版 eclipse 同款：仅 edge/immersive 启用）
+    // 沉浸式安全区适配（完整复刻原版 eclipse：__fmViewport 优先 + chromeMode 缓存 + CSS 变量兜底）
+    const _sa = { chromeMode: '', barsHidden: false };
+    const readRootPixel = (name) => {
+      try {
+        const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+        return isNaN(v) ? 0 : v;
+      } catch (e) { return 0; }
+    };
     const applyVp = (d) => {
       d = d || {};
-      const mode = String(d.chromeMode || '').toLowerCase();
-      const st = Number(d.safeTop), sb = Number(d.statusBarHeight);
-      const has = (!isNaN(st) && st > 0) || (!isNaN(sb) && sb > 0);
-      const root = document.documentElement;
-      if ((mode === 'edge' || mode === 'immersive') && has && !(d.systemBarsHidden && ((isNaN(st)?0:st) <= 0) && ((isNaN(sb)?0:sb) <= 0))) root.classList.add('safe-top-active');
-      else root.classList.remove('safe-top-active');
+      if (d.chromeMode) _sa.chromeMode = String(d.chromeMode).toLowerCase();
+      if (typeof d.systemBarsHidden !== 'undefined') _sa.barsHidden = !!d.systemBarsHidden;
+      let st = Number(d.safeTop); if (isNaN(st)) st = readRootPixel('--fm-safe-top');
+      let sb = Number(d.statusBarHeight); if (isNaN(sb)) sb = readRootPixel('--fm-status-bar-height');
+      if (_sa.barsHidden && st <= 0 && sb <= 0) { document.documentElement.classList.remove('safe-top-active'); return; }
+      const modeOk = _sa.chromeMode === 'edge' || _sa.chromeMode === 'immersive';
+      if (modeOk && (st > 0 || sb > 0)) document.documentElement.classList.add('safe-top-active');
+      else document.documentElement.classList.remove('safe-top-active');
     };
-    try {
-      let vp = (window.fm && fm.ui && typeof fm.ui.getViewport === 'function') ? fm.ui.getViewport() : null;
-      if (vp && typeof vp.then === 'function') vp.then(applyVp).catch(() => applyVp({}));
-      else applyVp(vp || {});
-    } catch(e) { applyVp({}); }
+    const refreshVp = () => {
+      if (window.__fmViewport) { applyVp(window.__fmViewport); return; }
+      if (!window.fm || !fm.ui || typeof fm.ui.getViewport !== 'function') { applyVp({}); return; }
+      try {
+        const r = fm.ui.getViewport();
+        if (r && typeof r.then === 'function') r.then((v) => applyVp(v || {})).catch(() => applyVp({}));
+        else applyVp(r || {});
+      } catch (e) { applyVp({}); }
+    };
+    refreshVp();
     window.addEventListener('fmviewport', (ev) => applyVp(ev && ev.detail));
-    window.addEventListener('fmresume', () => { try { this.init(); } catch(e) {} });
+    window.addEventListener('fmresume', refreshVp);
     this.loadExcludedSites();
     this.applyTheme();
     this.init();
