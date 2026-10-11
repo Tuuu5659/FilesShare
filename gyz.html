@@ -10,8 +10,8 @@
 <style>
 /* 状态栏安全区 */
 :root { --safe-top: env(safe-area-inset-top, 0); }
-body { padding-top: var(--safe-top); }
-.topbar { padding-top: calc(var(--safe-top) + 12px); }
+body { padding-top: 0; }
+.topbar { padding-top: calc(var(--safe-top) + 10px); background: linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0)); }
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
 :root{
@@ -352,7 +352,7 @@ async function callNative(func, ...args) {
     } else if (func === 'getCategoryContentAsync') {
       // getCategoryContentAsync(sourceType, currentSite, tid, pg, filters) -> fm.vodCategory(tid, pg, {filter:true, extend:filters})
       const tid = params[2];
-      const pg = params[3] || 1;
+      const pg = parseInt(params[3], 10) || 1;
       let filters = params[4] || {};
       if (typeof filters === 'string') { try { filters = JSON.parse(filters); } catch(e) { filters = {}; } }
       result = await fm.vodCategory(String(tid), pg, {filter: true, extend: filters});
