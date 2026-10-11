@@ -98,7 +98,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .search-box input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:13px;min-width:0;}
 .search-box input::placeholder{color:var(--text-sub);}
 .search-box .fa-search{color:var(--text-sub);font-size:14px;cursor:pointer;}
-.top-icon{width:40px;height:40px;border-radius:50%;background:var(--pill-bg);border:1px solid var(--pill-border);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex-shrink:0;}
+.top-icon{width:40px;height:40px;border-radius:50%;background:transparent;border:none;color:var(--text);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex-shrink:0;}
 
 /* 分类栏 */
 .cat-bar{display:flex;align-items:center;overflow-x:auto;gap:22px;padding:4px 18px 0 18px;flex-shrink:0;scroll-behavior:smooth;}
@@ -273,7 +273,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
     <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
   </div>
-  <div class="filter-fab" v-if="hasFilters" :class="{on: selectedFilterCount>0}" @click="showFilter=true"><i class="fas fa-sliders-h"></i></div>
+  <div class="filter-fab" v-if="hasFilters" :class="{on: selectedFilterCount>0}" @click="showFilter=true"><i class="fas fa-filter"></i></div>
   </div>
 
 
@@ -388,7 +388,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   <div class="overlay" v-if="showFilter" @click.self="showFilter=false"></div>
   <div class="drawer-sheet" v-if="showFilter">
     <div class="drawer-head">
-      <span class="t"><i class="fas fa-sliders-h"></i> 影视分类筛选</span>
+      <span class="t"><i class="fas fa-filter"></i> 影视分类筛选</span>
       <div style="display:flex;gap:12px;align-items:center;">
         <span style="font-size:12.5px;color:var(--accent);cursor:pointer;font-weight:700;" @click="resetFilters">重置</span>
         <span style="font-size:12.5px;padding:3px 10px;border-radius:10px;background:var(--accent);color:var(--accent-text);cursor:pointer;font-weight:700;" @click="showFilter=false">确定</span>
