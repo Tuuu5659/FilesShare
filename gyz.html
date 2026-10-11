@@ -339,7 +339,44 @@ window.__onNativeError = (id, err) => {
   if (window._reqs[id]) { clearTimeout(window._reqs[id].timer); window._reqs[id].reject(err); delete window._reqs[id]; }
 };
 
-async function callNative(func, ...args) {
+// ===== icons 封面兜底（https 同源，规避 Mixed Content 与本机端口漂移）=====
+  const __PIC_BASE = 'https://Tuuu5659.github.io/FilesShare/icons/';
+  const __PIC_MAP = [
+    ['电影|影院|影片|院线|剧场|影视', ['ic1_movie-fill.png', 'ic1_movie-2-fill.png', 'ic1_film-fill.png']],
+    ['电视剧|连续剧|剧集|剧', ['ic1_tv-fill.png', 'ic1_tv-2-fill.png', 'ic1_clapperboard-fill.png']],
+    ['综艺|娱乐|晚会|搞笑|喜剧', ['ic1_live-fill.png', 'ic1_sparkling-fill.png', 'ic1_star-fill.png']],
+    ['动漫|动画|番|二次元|漫画', ['ic1_magic-fill.png', 'ic1_sparkling-2-fill.png', 'ic1_game-fill.png']],
+    ['短剧', ['ic1_clapperboard-fill.png', 'ic1_play-circle-fill.png', 'ic1_film-fill.png']],
+    ['纪录|人文|地理|探索|历史|科普|教育|学习|国学|文化', ['ic1_compass-discover-fill.png', 'ic1_memories-fill.png', 'ic1_history-fill.png', 'ic1_award-fill.png']],
+    ['音乐|歌曲|听书|音频|电台|广播|唱|歌', ['ic1_music-fill.png', 'ic1_music-2-fill.png', 'ic1_headphone-fill.png', 'ic1_mic-fill.png', 'ic1_radio-fill.png']],
+    ['直播|实时', ['ic1_live-fill.png', 'ic1_broadcast-fill.png', 'ic1_video-on-fill.png']],
+    ['图|图片|写真|美女|福利|画', ['ic1_image-fill.png', 'ic1_image-2-fill.png', 'ic1_gallery-fill.png', 'ic1_polaroid-fill.png', 'ic1_heart-fill.png']],
+    ['体育|篮球|足球|球|赛事|比赛', ['ic1_basketball-fill.png', 'ic1_football-fill.png', 'ic1_trophy-fill.png']],
+    ['游戏|电竞|手游', ['ic1_game-fill.png', 'ic1_gamepad-fill.png', 'ic1_playstation-fill.png']],
+    ['榜|排行|热门|热度', ['ic1_trophy-fill.png', 'ic1_medal-fill.png', 'ic1_fire-fill.png']],
+    ['资讯|吃瓜|爆料|热点|头条', ['ic1_fire-fill.png', 'ic1_notification-fill.png', 'ic1_temp-hot-fill.png']],
+    ['小说|文学|书|阅读|网文', ['ic1_bookmark-fill.png', 'ic1_album-fill.png', 'ic1_bookmark-2-fill.png']]
+  ];
+  const __PIC_POOL = ['ic1_play-circle-fill.png', 'ic1_video-fill.png', 'ic1_vidicon-fill.png', 'ic1_film-fill.png', 'ic1_disc-fill.png', 'ic1_dvd-fill.png', 'ic1_camera-fill.png', 'ic1_ticket-fill.png'];
+  function __picHash(s) { let h = 0; s = String(s || ''); for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; } return Math.abs(h); }
+  function __picFix(name, pic) {
+    let p = String(pic || '');
+    const m = p.match(/^http:\/\/127\.0\.0\.1:99\d\d\/file\/mlz\/(?:base\/)?lib\/icons\/(ic1_[\w.-]+\.png)$/);
+    if (m) return __PIC_BASE + m[1];               // 本机 icons → 同源重写
+    if (p && p.indexOf('http') === 0 && p.indexOf('https://') !== 0) {
+      // 其他 http 资源同样尝试走同源 icons（是 icons 就换，不是保持）
+      const m2 = p.match(/\/lib\/icons\/(ic1_[\w.-]+\.png)$/);
+      if (m2) return __PIC_BASE + m2[1];
+    }
+    if (p) return p;
+    const n = String(name || '');
+    for (const e of __PIC_MAP) {
+      try { if (new RegExp(e[0]).test(n)) { const arr = e[1]; return __PIC_BASE + arr[__picHash(n + '|' + e[0]) % arr.length]; } } catch (err) {}
+    }
+    return __PIC_BASE + __PIC_POOL[__picHash(n) % __PIC_POOL.length];
+  }
+
+  async function callNative(func, ...args) {
   // 适配层：把旧 API 映射到 WebHTV WebHome fm API
   const cb = args[args.length-1]; // callback 可能在最后
   const isCb = typeof cb === 'function';
@@ -556,7 +593,7 @@ createApp({
       return raw.map(item => ({
         vod_id: item.vod_id || item.vodId || item.id || '',
         vod_name: item.vod_name || item.name || item.title || '未知片名',
-        vod_pic: item.vod_pic || item.pic || item.img || '',
+        vod_pic: __picFix(item.vod_name || item.name, item.vod_pic || item.pic || item.img),
         vod_remarks: item.vod_remarks || item.vod_remark || item.remarks || item.note || '',
         vod_tag: item.vod_tag || (item.kind === 'folder' ? 'folder' : '')
       }));
