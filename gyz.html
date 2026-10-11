@@ -34,12 +34,19 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .tb-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:1;min-width:0;}
 /* MD3 悬浮底栏 */
 .bottom-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);z-index:900;display:flex;align-items:center;gap:2px;padding:6px 8px;border-radius:26px;background:var(--panel-bg);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.4);}
-.bn-item{position:relative;min-width:60px;height:52px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text-sub);cursor:pointer;font-size:10px;font-weight:600;-webkit-tap-highlight-color:transparent;transition:color .18s, transform .12s;}
-.bn-item i{font-size:18px;position:relative;z-index:1;}
-.bn-item span{position:relative;z-index:1;}
+.bn-item{position:relative;min-width:62px;height:52px;border-radius:20px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text-sub);cursor:pointer;font-size:10px;font-weight:600;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:color .18s ease, transform .26s cubic-bezier(.2,1.5,.4,1);}
+.bn-item i{font-size:18px;position:relative;z-index:2;transition:transform .2s cubic-bezier(.2,1.7,.4,1);}
+.bn-item span{position:relative;z-index:2;}
+/* 选中态：光斑铺满整个按钮 + border-radius:inherit，与容器完全贴合，不再有偏上偏侧的错位 */
 .bn-item.on{color:var(--accent);}
-.bn-item.on:before{content:'';position:absolute;top:3px;left:50%;transform:translateX(-50%);width:54px;height:34px;border-radius:17px;background:var(--accent);opacity:.18;}
-.bn-item:active{transform:scale(.93);}
+.bn-item.on:before{content:'';position:absolute;inset:0;border-radius:inherit;background:var(--accent);opacity:.16;transition:opacity .22s ease;}
+/* 点按涟漪：在按钮内扩散，被 overflow:hidden 裁成圆角矩形 */
+.bn-item:after{content:'';position:absolute;left:50%;top:50%;width:16px;height:16px;border-radius:50%;background:var(--accent);opacity:0;transform:translate(-50%,-50%) scale(0);z-index:1;pointer-events:none;}
+.bn-item:active:after{animation:bnRipple .46s ease-out;}
+@keyframes bnRipple{0%{opacity:.34;transform:translate(-50%,-50%) scale(0);}100%{opacity:0;transform:translate(-50%,-50%) scale(6);}}
+/* 点按缩放：按下 0.08s 近乎立即生效，松开走 .26s 弹性回弹 */
+.bn-item:active{transition:transform .08s ease-out;transform:scale(.9);}
+.bn-item:active i{transform:scale(.84);}
 .bottom-nav{transition:transform .26s cubic-bezier(.2,.8,.3,1), opacity .26s;}
 .bottom-nav.hide{transform:translateX(-50%) translateY(120%);opacity:0;pointer-events:none;}
 /* MD3 搜索框 */
@@ -203,8 +210,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   <div class="bottom-nav" :class="{hide: navHidden}">
     <div class="bn-item" @click="navBack"><i class="fas fa-arrow-left"></i><span>返回</span></div>
     <div class="bn-item" :class="{on: String(t)==='__home__'||String(t)==='__REC__'||(categories.length&&String(t)===String(categories[0].type_id))}" @click="navHome"><i class="fas fa-fire"></i><span>推荐</span></div>
-    <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
     <div class="bn-item" @click="showThemeDrawer=true"><i class="fas fa-palette"></i><span>主题</span></div>
+    <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
   </div>
   <!-- MD3 搜索框（顶部滑入） -->
   <div class="search-sheet" v-if="showSearchBar" @click.self="showSearchBar=false">
