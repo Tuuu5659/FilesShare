@@ -87,6 +87,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .sec-head{display:flex;align-items:center;gap:8px;padding:0 18px 14px 18px;font-size:17px;font-weight:700;color:var(--text);}
 .sec-head::before{content:'';display:inline-block;width:4px;height:18px;background:var(--accent);border-radius:2px;}
 .grid{padding:0 14px 20px 14px;}
+.grid{animation:gridIn .28s cubic-bezier(.2,.8,.3,1) both;}
+.grid.from-right{animation-name:gridInR;}
+.grid.from-left{animation-name:gridInL;}
+@keyframes gridInR{from{opacity:0;transform:translateX(36px);}to{opacity:1;transform:none;}}
+@keyframes gridInL{from{opacity:0;transform:translateX(-36px);}to{opacity:1;transform:none;}}
 .card{position:relative;border-radius:16px;overflow:hidden;background:var(--card-bg);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.28);transition:transform 0.15s, box-shadow .2s;}
 .card:active{transform:scale(0.97);}
 .card img{width:100%;height:100%;object-fit:cover;display:block;background:var(--panel-bg);}
@@ -207,7 +212,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
   <!-- 分类栏：支持点击当前分类刷新 -->
   <div class="cat-bar" ref="catBar">
-    <div v-for="c in categories" :key="c.type_id" :id="'chip-'+c.type_id" class="cat-item" :class="{active:String(t)===String(c.type_id)}" @click="clickCategoryTab(c.type_id)">{{c.type_name}}</div>
+    <div v-for="c in categories" :key="c.type_id" :id="'chip-'+c.type_id" class="cat-item" :class="{active:String(curTabId)===String(c.type_id)}" @click="clickCategoryTab(c.type_id)">{{c.type_name}}</div>
     <div id="chip-__search__" class="cat-item" :class="{active:t==='__search__'}" @click="clickSearchChip" style="padding-left:8px;">
       <i class="fas fa-search" style="font-size:12px;margin-right:5px;"></i>搜索
     </div>
@@ -220,7 +225,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <div class="hero-card" v-for="(item,idx) in [topBanners[heroIdx]]" :key="item.vod_id" @click="clickCard(item)">
         <div class="hero-blur" :style="{backgroundImage:'url(' + (item.vod_pic||'') + ')'}"></div>
         <div class="hero-inner">
-          <img class="hero-cover" :src="item.vod_pic||'https://img.icons8.com/color/96/movie-projector.png'" onerror="this.onerror=null;this.src='https://img.icons8.com/color/96/movie-projector.png'">
+          <img class="hero-cover" :src="item.vod_pic||__picFix(item.vod_name||'','')" @error="onImgErr($event, item.vod_name)">
           <div class="hero-meta">
             <div class="hero-title-v">{{item.vod_name||'未知片名'}}</div>
             <div class="hero-tag-v" v-if="item.vod_remarks">{{item.vod_remarks}}</div>
@@ -235,9 +240,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
     <div class="sec-head" v-if="gridItems.length>0 && theme.layout!=='list_text'">{{currentTabName}}</div>
 
     <!-- 卡片列表 -->
-    <div class="grid" :class="'layout-'+theme.layout">
+    <div class="grid" :class="['layout-'+theme.layout, slideDir]" :key="gridKey">
       <div v-for="v in gridItems" :key="v.vod_id" class="card" @click="clickCard(v)">
-        <img :src="v.vod_pic||'https://img.icons8.com/color/96/movie-projector.png'" loading="lazy" onerror="this.onerror=null;this.src='https://img.icons8.com/color/96/movie-projector.png'">
+        <img :src="v.vod_pic||__picFix(v.vod_name||'','')" loading="lazy" @error="onImgErr($event, v.vod_name)">
         <div class="tag-top" v-if="v.vod_remarks"><span class="dot"></span>{{v.vod_remarks}}</div>
         <div class="bottom-bar"><div class="name">{{v.vod_name||v.name||'未知片名'}}</div></div>
       </div>
@@ -400,6 +405,7 @@ window.__onNativeError = (id, err) => {
       const m2 = p.match(/\/lib\/icons\/(ic1_[\w.-]+\.png)(?:\?.*)?$/);
       if (m2) return __PIC_BASE + m2[1];
     }
+    if (p && p.indexOf('http://') === 0) p = '';
     if (p) return p;
     const n = String(name || '');
     for (const e of __PIC_MAP) {
@@ -496,13 +502,19 @@ createApp({
       heroIdx:0, loading:false, errorMsg:'', showModal:false, searchKw:'',
       excludedSites:{}, allFilters:{}, selectedFilters:{}, showFilter:false,
       searchWord:'', searchKeyword:'', searchDone:false, pg:1, pagecount:999, hasMore:true, loadingMore:false,
-      folderStack:[], showThemeDrawer:false, showCatModal:false, showSearchBar:false, lastBackTs:0,
+      folderStack:[], showThemeDrawer:false, showCatModal:false, showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'',
       themeKey: (PRESET_THEMES[ik] ? ik : 'amber'),
       layoutMode: 'compact',
       touchStartX:0, touchStartY:0
     };
   },
   computed: {
+    gridKey() { return String(this.t || '') + '|' + String(this.currentSite || ''); },
+    curTabId() {
+      const t = String(this.t || '');
+      if (this.categories.some(c => String(c.type_id) === t)) return t;
+      return String(this.baseTab || t);
+    },
     currentTabList() {
       const t = this.activeTab;
       return t==='host'?this.hostSites:(t==='py'?this.pySites:(t==='js'?this.jsSites:(t==='cj'?this.cjSites:this.xlSites)));
@@ -660,7 +672,7 @@ createApp({
         if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTo({top: 0, behavior: 'smooth'});
         this.refreshCurrent();
       } else {
-        this.changeTab(tid);
+        this.swipeTo(tid);
       }
     },
 
@@ -735,10 +747,10 @@ createApp({
       this.touchStartX = 0; this.touchStartY = 0;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         if (this.categories.length <= 1) return;
-        const idx = this.categories.findIndex(c => String(c.type_id) === String(this.t));
-        if (idx === -1) { if (dx > 0) this.goBackCore(); else if (this.categories.length) this.changeTab(this.categories[0].type_id); return; }
-        if (dx < 0 && idx < this.categories.length - 1) this.changeTab(this.categories[idx+1].type_id);
-        else if (dx > 0 && idx > 0) this.changeTab(this.categories[idx-1].type_id);
+        const idx = this.categories.findIndex(c => String(c.type_id) === String(this.curTabId));
+        if (idx === -1) { if (dx > 0) this.goBackCore(); else if (this.categories.length) this.swipeTo(this.categories[0].type_id); return; }
+        if (dx < 0 && idx < this.categories.length - 1) this.swipeTo(this.categories[idx+1].type_id);
+        else if (dx > 0 && idx > 0) this.swipeTo(this.categories[idx-1].type_id);
       }
     },
     handleGridScroll(e) {
@@ -780,13 +792,29 @@ createApp({
         else this.errorMsg = '未检测到可用的视频源，请先配置数据源';
       } catch(e) { this.errorMsg = String(e); }
     },
+    onImgErr(e, name) {
+      const el = e && e.target;
+      if (!el) return;
+      if (el.dataset.mlzErr === '2') return;
+      if (el.dataset.mlzErr === '1') { el.dataset.mlzErr = '2'; el.onerror = null; el.src = 'https://img.icons8.com/color/96/movie-projector.png'; return; }
+      el.dataset.mlzErr = '1';
+      el.onerror = () => { el.dataset.mlzErr = '2'; el.onerror = null; el.src = 'https://img.icons8.com/color/96/movie-projector.png'; };
+      const url = __picFix(String(name || ''), '');
+      if (url && el.src !== url) el.src = url; else { el.dataset.mlzErr = '2'; el.onerror = null; el.src = 'https://img.icons8.com/color/96/movie-projector.png'; }
+    },
+    swipeTo(tid) {
+      const cur = this.categories.findIndex(c => String(c.type_id) === String(this.curTabId));
+      const nxt = this.categories.findIndex(c => String(c.type_id) === String(tid));
+      if (nxt >= 0 && cur >= 0 && nxt < cur) this.slideDir = 'from-left'; else this.slideDir = 'from-right';
+      this.changeTab(tid);
+    },
     goBackCore() {
       if (this.showSearchBar) { this.showSearchBar = false; return; }
       if (this.showCatModal) { this.showCatModal = false; return; }
       if (this.showThemeDrawer) { this.showThemeDrawer = false; return; }
       if (this.showFilter) { this.showFilter = false; return; }
       if (this.showModal) { this.showModal = false; return; }
-      if (this.folderStack.length > 0) { const prev = this.folderStack.pop(); this.t = prev.t; this.list = prev.list; this.pg = prev.pg; this.hasMore = prev.hasMore; return; }
+      if (this.folderStack.length > 0) { const prev = this.folderStack.pop(); this.t = prev.t; this.baseTab = prev.t; this.list = prev.list; this.pg = prev.pg; this.hasMore = prev.hasMore; this.slideDir = 'from-left'; return; }
       const firstTid = this.categories.length ? String(this.categories[0].type_id) : '';
       if (firstTid && String(this.t) !== firstTid) { this.changeTab(firstTid, true); return; }
       // 根状态：双击退出（2s 内第二次真退出，否则 toast 提示并补栈）
@@ -811,6 +839,7 @@ createApp({
       if (String(this.t) !== '__search__') {
         this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
         try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
+        this.baseTab = this.t; this.slideDir = 'from-right';
       }
       this.doSearch();
     },
@@ -897,7 +926,7 @@ createApp({
     },
 
     async changeTab(tid, fromBack) {
-      this.t = tid; this.folderStack = []; this.selectedFilters = {}; this.hasMore = true; this.heroIdx = 0;
+      this.t = tid; this.baseTab = tid; this.folderStack = []; this.selectedFilters = {}; this.hasMore = true; this.heroIdx = 0;
       if (!fromBack) { try { history.pushState({ n: Date.now() }, ''); } catch (e) {} }
       this.$nextTick(() => { const el = document.getElementById('chip-'+tid); if (el) el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); });
       await this.fetchCategoryData(tid, 1, false);
@@ -907,7 +936,9 @@ createApp({
       if (v.vod_tag === 'folder') {
         this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
         try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
+        this.baseTab = this.t; this.slideDir = 'from-right';
         this.t = v.vod_id; this.loadFolder(v.vod_id);
+        this.$nextTick(() => { const el = document.getElementById('chip-' + this.baseTab); if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); });
       } else {
         (async () => {
         const payload = { siteKey: this.currentSite || '', vodId: v.vod_id, title: v.vod_name || '', pic: v.vod_pic || '', content: v.vod_content || v.content || '', remarks: v.vod_remarks || v.vod_remark || '' };
