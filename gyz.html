@@ -8,6 +8,11 @@
 <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+/* 状态栏安全区 */
+:root { --safe-top: env(safe-area-inset-top, 0); }
+body { padding-top: var(--safe-top); }
+.topbar { padding-top: calc(var(--safe-top) + 12px); }
+
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
 :root{
   --nav-inset:{{__NAV_BAR__}}px;
@@ -375,10 +380,10 @@ async function callNative(func, ...args) {
     }
     
     if (isCb) cb(result);
-    else resolve(result);
+    return result;
   } catch(e) {
     if (isCb) cb(null, e);
-    else reject(e);
+    throw e;
   }
 }
 
