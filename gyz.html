@@ -1150,12 +1150,17 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       try {
         const res = await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
         const rf = res && res.filters;
+        // ★ 壳子 v2 契约统一输出 camelCase：classes[{typeId,typeName}]、filters 组 values[{name,value}]
+        //   本页 loadHome 会把它们归一化成 type_id/type_name 存进 this.categories。
+        //   上一版守卫只认 type_name，跟契约的 typeName 永远对不上 → 合并被自己毙掉 → 筛选按钮一直不出现。
+        const _alt = (k) => { const r = String(k).replace(/([A-Z])/g, '_$1').toLowerCase(); return r === k ? '' : r; };
+        const _nm = (c, k) => { if (!c) return ''; if (c[k] !== undefined) return String(c[k] || ''); const a = _alt(k); return a && c[a] !== undefined ? String(c[a] || '') : ''; };
         const inc = res && (res.class || res.classes || []);
         if (!rf || typeof rf !== 'object' || !inc.length || !this.categories.length) return;
         if (inc.length !== this.categories.length) return;
         let same = true;
         for (let i = 0; i < inc.length; i++) {
-          if (String((inc[i] || {}).type_name || '') !== String((this.categories[i] || {}).type_name || '')) { same = false; break; }
+          if (_nm(inc[i], 'type_name') !== _nm(this.categories[i], 'type_name')) { same = false; break; }
         }
         if (!same) return;
         const af = Object.assign({}, this.allFilters || {});
