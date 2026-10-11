@@ -744,6 +744,21 @@ createApp({
       return JSON.stringify(clean);
     },
 
+    /* 取当前 tab 的首个「子分类」筛选值。
+       liushi 是 v2：筛选 key/value 都被壳子签成引用（original_+UUID），按名称兜底匹配组；
+       非 v2 时 key 仍是 __sub__。只跳过空值（空值无法回流聚合源）。 */
+    _firstSubVal(tid) {
+      const groups = (this.allFilters || {})[String(tid)] || [];
+      let g = groups.find(x => String(x.key) === '__sub__' || String(x.name) === '子分类');
+      if (!g) g = groups[0];
+      if (!g || !Array.isArray(g.value)) return null;
+      for (const o of g.value) {
+        const v = (o.v !== undefined ? o.v : (o.value !== undefined ? o.value : ''));
+        if (v !== undefined && String(v).trim() !== '') return { k: String(g.key), v: String(v).trim() };
+      }
+      return null;
+    },
+
     /* 兼容 list, data, data.list 多种返回结构 */
     normalizeList(res) {
       let raw = [];
@@ -778,7 +793,19 @@ createApp({
         // 聚合源要到本次分类请求里才探明该站 class 并发进缓存 → 这里补拉一次 HOME 把筛选入口合并出来
         if (!append && this.t && String(this.t) !== '__home__' && this._fwTab !== String(this.t)) {
           this._fwTab = String(this.t);
-          this.refreshFilters();
+          await this.refreshFilters();
+        }
+        // liushi 是 v2 主题：typeId 有引用保护，folder 卡的 vod_id 当 typeId 回传必报 Unknown type reference。
+        // 聚合源此时只会下发纯「分类目录页」（全 folder），而该站子分类已由 HOME 的 __sub__ 筛选器下发
+        // → 自动套用第一个子分类值再拉一次，跳过 folder 层，直出首个分类内容；筛选面板照常切换。
+        // 非 v2 页面（gyz）不做这步，folder 卡原样下钻。
+        if (!append && newItems.length && newItems.every(it => it.vod_tag === 'folder')
+            && this.selectedFilters[String(this.t)] === undefined) {
+          const sv = this._firstSubVal(String(this.t));
+          if (sv) {
+            this.selectedFilters = Object.assign({}, this.selectedFilters, { [sv.k]: sv.v });
+            return this.fetchCategoryData(String(this.t), pageNum, false, false);
+          }
         }
         if (append) {
           this.list = this.list.concat(newItems);
