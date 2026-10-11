@@ -624,13 +624,15 @@ createApp({
 // 且 applyTheme 里的 saveUserPreference 只被壳子当偏好存档、不回传页面 → layoutMode 若硬编码，
 // 每次重开首页/重进抽屉都会退回默认「2列海报」。故与主题键分开落 localStorage。
 const LAYOUT_MODES = ['poster', 'compact', 'feed', 'list_img', 'list_text'];
-// 冷启动空态自愈：首页 tab 首次拉空（后台推荐还在采样）或桥首次超时/抖动 →
-// 隔 EMPTY_RETRY_DELAY 自动重试（期间保持转圈不落「暂无内容」）；重试耗尽且仍停在首个 tab
-// 则顺延到下一个分类，保证屏幕一定有内容。
-// 后端推荐采样预算约 8s（REC_BUDGET），重试窗口必须覆盖它，否则在采样完成前就放弃 →
-// 用户看到「点击重试」。MAX=5 累计 1.5+3+4.5+6+7.5=22.5s，足够盖住冷启动首次采样。
-const EMPTY_RETRY_MAX = 5;
+// 冷启动空态自愈：首页 tab 首次拉空（后台推荐/宿主后端还在热身）或桥首次超时/抖动 →
+// 持续自动重试（期间保持转圈不落「暂无内容」），直到后端就绪拿到数据；重试耗尽且仍停在
+// 首个 tab 则顺延到下一个分类，保证屏幕一定有内容。
+// ★ 冷启动根治：WebHTV 刚打开时宿主源后端未热身，首帧必空。旧配置 5 次/累计 22.5s 不够，
+//   backend 热身慢时就停在「点击重试」。改为 MAX=20 + 单次间隔封顶 3s（响应仍快），
+//   累计覆盖约 58s 的持续转圈，几乎必然等到后端就绪，用户无需手动点。
+const EMPTY_RETRY_MAX = 20;
 const EMPTY_RETRY_DELAY = 1500;
+const EMPTY_RETRY_CAP = 3000;   // 单次重试间隔上限（避免越等越久）
 
 function loadLayout() {
   try { const s = localStorage.getItem('gyz_layout'); return LAYOUT_MODES.indexOf(s) >= 0 ? s : 'compact'; }
@@ -812,7 +814,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       if (tries < EMPTY_RETRY_MAX) {
         const seq = this._rtSeq || 0;
         const me = this;
-        const wait = EMPTY_RETRY_DELAY * (tries + 1);
+        const wait = Math.min(EMPTY_RETRY_DELAY * (tries + 1), EMPTY_RETRY_CAP);
         console.log('[autoRetry] ' + why + '，' + wait + 'ms 后重试（第 ' + (tries + 1) + '/' + EMPTY_RETRY_MAX + ' 次）');
         setTimeout(() => {
           if (me.destroyed || (me._rtSeq || 0) !== seq) return;
@@ -1201,13 +1203,14 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       this.folderStack = []; this.allFilters = {}; this.selectedFilters = {};
       this.searchWord = ''; this.searchKeyword = ''; this.searchDone = false;
       this.errorMsg = ''; this.pg = 1; this.hasMore = true; this.loadingMore = false;
+      this._bootSeq = (this._bootSeq || 0) + 1;   // 作废上一个源遗留的冷启动重试定时器
       callNative('saveLastSelectedSite', type, s.key, s.name || '');
       if (type === 'host' || type === 'xl') callNative('setHostHomeSite', s.key);
       await this.loadHome();
     },
 
     /* ★ 核心攻坚：无推荐页时，直接把第 1 个分类作为首页拉取数据，焦点图自动展示前 8 部影片 */
-    async loadHome() {
+    async loadHome(_boot) {
       this.loading = true; this.errorMsg = ''; this.folderStack = [];
       try {
         const res = await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
@@ -1226,6 +1229,25 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
         }
         this.allFilters = _af;
         const homeRecommend = this.normalizeList(res);
+
+        // ★ 冷启动根治：WebHTV 刚打开时宿主源后端未热身，HOME 可能既无推荐又无分类。
+        //   这时不要落「该源未配置分类」空态，而是持续重试直到后端就绪（最多 ~20 次 / 58s）。
+        if (homeRecommend.length === 0 && rawClasses.length === 0) {
+          const bt = (_boot | 0);
+          if (bt < EMPTY_RETRY_MAX) {
+            const seq = (this._bootSeq = (this._bootSeq || 0));
+            const wait = Math.min(EMPTY_RETRY_DELAY * (bt + 1), EMPTY_RETRY_CAP);
+            setTimeout(() => {
+              if (this.destroyed || (this._bootSeq || 0) !== seq) return;
+              this.loadHome(bt + 1);
+            }, wait);
+            return;   // 保持 loading=true（转圈），不落空态
+          }
+          this.categories = []; this.t = ''; this.list = [];
+          this.errorMsg = '该源未配置分类';
+          this.loading = false;
+          return;
+        }
 
         // 1. 若源自带首页推荐，正常呈现
         if (homeRecommend.length > 0) {
@@ -1249,13 +1271,24 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
           this.loading = false;
           await this.fetchCategoryData(firstTid, 1, false);
         } 
-        // 3. 空源
+        // 3. 空源（理论到不了，上面已拦截）
         else {
           this.categories = []; this.t = ''; this.list = [];
           this.errorMsg = '该源未配置分类';
           this.loading = false;
         }
       } catch(e) {
+        // 冷启动桥超时/抖动：持续重试，不直接落错误
+        const bt = (_boot | 0);
+        if (bt < EMPTY_RETRY_MAX) {
+          const seq = (this._bootSeq = (this._bootSeq || 0));
+          const wait = Math.min(EMPTY_RETRY_DELAY * (bt + 1), EMPTY_RETRY_CAP);
+          setTimeout(() => {
+            if (this.destroyed || (this._bootSeq || 0) !== seq) return;
+            this.loadHome(bt + 1);
+          }, wait);
+          return;
+        }
         this.errorMsg = '❌ ' + e;
         this.list = [];
         this.loading = false;
