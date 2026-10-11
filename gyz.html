@@ -27,6 +27,26 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 #app{position:relative;z-index:2;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:var(--nav-inset,0px);background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 40%,var(--bg-3) 100%);color:var(--text);}
 
 /* 顶部 */
+.tb-title{display:flex;align-items:center;gap:8px;min-width:0;flex:1;cursor:pointer;}
+.tb-title .tt-name{font-size:17px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.2px;}
+.tb-title .tb-chev{font-size:11px;color:var(--text-sub);}
+.tb-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+/* MD3 悬浮底栏 */
+.bottom-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);z-index:900;display:flex;align-items:center;gap:2px;padding:6px 8px;border-radius:26px;background:var(--panel-bg);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.4);}
+.bn-item{position:relative;min-width:60px;height:52px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text-sub);cursor:pointer;font-size:10px;font-weight:600;-webkit-tap-highlight-color:transparent;transition:color .18s, transform .12s;}
+.bn-item i{font-size:18px;position:relative;z-index:1;}
+.bn-item span{position:relative;z-index:1;}
+.bn-item.on{color:var(--accent);}
+.bn-item.on:before{content:'';position:absolute;top:3px;left:50%;transform:translateX(-50%);width:54px;height:34px;border-radius:17px;background:var(--accent);opacity:.18;}
+.bn-item:active{transform:scale(.93);}
+/* MD3 搜索框 */
+.search-sheet{position:fixed;inset:0;z-index:1001;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-start;padding:calc(var(--safe-top) + 10px) 14px 0 14px;}
+.ss-box{width:100%;max-width:520px;display:flex;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--line);border-radius:28px;height:52px;padding:0 18px;box-shadow:0 12px 36px rgba(0,0,0,.55);animation:ssIn .18s ease-out;}
+@keyframes ssIn{from{transform:translateY(-14px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.ss-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:15px;min-width:0;}
+.ss-box input::placeholder{color:var(--text-sub);}
+.ss-back,.ss-go{color:var(--text-sub);font-size:15px;cursor:pointer;}
+.ss-go{color:var(--accent);}
 .topbar{display:flex;align-items:center;gap:8px;padding:{{__STATUS_BAR_PLUS_6__}}px 14px 10px 14px;flex-shrink:0;z-index:20;}
 .src-pill{display:flex;align-items:center;gap:6px;background:var(--pill-bg);border:1px solid var(--pill-border);padding:8px 12px;border-radius:22px;font-size:13px;font-weight:600;cursor:pointer;max-width:38%;min-width:0;color:var(--text);flex-shrink:0;}
 .src-pill .badge{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:800;text-transform:uppercase;}
@@ -67,7 +87,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .sec-head{display:flex;align-items:center;gap:8px;padding:0 18px 14px 18px;font-size:17px;font-weight:700;color:var(--text);}
 .sec-head::before{content:'';display:inline-block;width:4px;height:18px;background:var(--accent);border-radius:2px;}
 .grid{padding:0 14px 20px 14px;}
-.card{position:relative;border-radius:12px;overflow:hidden;background:var(--card-bg);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.35);transition:transform 0.15s;}
+.card{position:relative;border-radius:16px;overflow:hidden;background:var(--card-bg);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.28);transition:transform 0.15s, box-shadow .2s;}
 .card:active{transform:scale(0.97);}
 .card img{width:100%;height:100%;object-fit:cover;display:block;background:var(--panel-bg);}
 .card .tag-top{position:absolute;top:8px;left:8px;right:8px;display:flex;align-items:center;justify-content:flex-start;padding:4px 8px;font-size:10.5px;font-weight:600;color:#fff;background:rgba(0,0,0,0.72);border-radius:20px;backdrop-filter:blur(6px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -106,7 +126,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 /* 筛选与主题抽屉 */
 .filter-fab{position:fixed;right:18px;bottom:calc(24px + var(--nav-inset,0px));width:48px;height:48px;border-radius:50%;background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,0.5);}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
-.modal{width:92%;max-width:420px;height:78vh;background:var(--panel-bg);border:1px solid var(--line);border-radius:22px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+.modal{width:92%;max-width:420px;height:78vh;background:var(--panel-bg);border:1px solid var(--line);border-radius:28px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.6);}
 .modal-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);font-size:15px;font-weight:700;color:var(--accent);}
 .modal-head .fa-times{cursor:pointer;color:var(--text);font-size:16px;}
 .tab-bar{display:flex;background:var(--pill-bg);padding:4px;margin:10px 14px 6px 14px;border-radius:12px;gap:3px;overflow-x:auto;}
@@ -159,18 +179,30 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
   <!-- 顶部栏：源选择、搜索、筛选快捷、风格、退出 -->
   <div class="topbar">
-    <div class="src-pill" @click="onSourcePillClick">
+    <div class="tb-title" @click="onSourcePillClick">
       <span class="badge" :class="sourceType">{{sourceType}}</span>
-      <span class="name">{{currentSiteName||'选择源'}}</span>
-      <i class="fas fa-chevron-down"></i>
+      <span class="tt-name">{{currentSiteName||'影视流光'}}</span>
+      <i class="fas fa-chevron-down tb-chev"></i>
     </div>
-    <div class="search-box">
-      <input type="text" v-model="searchWord" placeholder="探索海量影视..." @keyup.enter="doSearch" />
-      <i class="fas fa-search" @click="doSearch"></i>
+    <div class="tb-actions">
+      <div class="top-icon" v-if="hasFilters" @click="showFilter=true" :style="{color: selectedFilterCount>0 ? 'var(--accent)' : 'var(--text)'}" title="筛选"><i class="fas fa-sliders-h"></i></div>
+      <div class="top-icon" @click="showThemeDrawer=true"><i class="fas fa-palette"></i></div>
     </div>
-    <div class="top-icon" v-if="hasFilters" @click="showFilter=true" :style="{color: selectedFilterCount>0 ? 'var(--accent)' : 'var(--text)'}" title="筛选"><i class="fas fa-sliders-h"></i></div>
-    <div class="top-icon" @click="showThemeDrawer=true"><i class="fas fa-palette"></i></div>
-    <div class="top-icon" @click="closeAndRestore"><i class="fas fa-times"></i></div>
+  </div>
+  <!-- MD3 悬浮底栏：返回 / 推荐 / 搜索 / 换源 -->
+  <div class="bottom-nav">
+    <div class="bn-item" @click="navBack"><i class="fas fa-arrow-left"></i><span>返回</span></div>
+    <div class="bn-item" :class="{on: String(t)==='__home__'||String(t)==='__REC__'||(categories.length&&String(t)===String(categories[0].type_id))}" @click="navHome"><i class="fas fa-fire"></i><span>推荐</span></div>
+    <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
+    <div class="bn-item" @click="onSourcePillClick"><i class="fas fa-tv"></i><span>换源</span></div>
+  </div>
+  <!-- MD3 搜索框（顶部滑入） -->
+  <div class="search-sheet" v-if="showSearchBar" @click.self="showSearchBar=false">
+    <div class="ss-box">
+      <i class="fas fa-arrow-left ss-back" @click="showSearchBar=false"></i>
+      <input type="text" v-model="searchWord" placeholder="搜索当前源..." @keyup.enter="doSearchGo" />
+      <i class="fas fa-search ss-go" @click="doSearchGo"></i>
+    </div>
   </div>
 
   <!-- 分类栏：支持点击当前分类刷新 -->
@@ -464,7 +496,7 @@ createApp({
       heroIdx:0, loading:false, errorMsg:'', showModal:false, searchKw:'',
       excludedSites:{}, allFilters:{}, selectedFilters:{}, showFilter:false,
       searchWord:'', searchKeyword:'', searchDone:false, pg:1, pagecount:999, hasMore:true, loadingMore:false,
-      folderStack:[], showThemeDrawer:false, showCatModal:false,
+      folderStack:[], showThemeDrawer:false, showCatModal:false, showSearchBar:false, lastBackTs:0,
       themeKey: (PRESET_THEMES[ik] ? ik : 'amber'),
       layoutMode: 'compact',
       touchStartX:0, touchStartY:0
@@ -558,15 +590,8 @@ createApp({
     this.loadExcludedSites();
     this.applyTheme();
     this.init();
-    window.handleAndroidBack = () => {
-      if (this.showCatModal) this.showCatModal = false;
-      else if (this.showThemeDrawer) this.showThemeDrawer = false;
-      else if (this.showFilter) this.showFilter = false;
-      else if (this.showModal) this.showModal = false;
-      else if (this.folderStack.length > 0) { const prev = this.folderStack.pop(); this.t=prev.t; this.list=prev.list; this.pg=prev.pg; this.hasMore=prev.hasMore; }
-      else if (this.categories.length > 0 && String(this.t) !== String(this.categories[0].type_id)) this.changeTab(this.categories[0].type_id);
-      else this.closeAndRestore();
-    };
+    window.addEventListener('popstate', () => { this.goBackCore(); });
+    window.handleAndroidBack = () => { this.goBackCore(); };
   },
   methods: {
     /* 清洗空过滤参数，绝不传空字符串造成数据库空查 */
@@ -755,6 +780,49 @@ createApp({
         else this.errorMsg = '未检测到可用的视频源，请先配置数据源';
       } catch(e) { this.errorMsg = String(e); }
     },
+    goBackCore() {
+      if (this.showSearchBar) { this.showSearchBar = false; return; }
+      if (this.showCatModal) { this.showCatModal = false; return; }
+      if (this.showThemeDrawer) { this.showThemeDrawer = false; return; }
+      if (this.showFilter) { this.showFilter = false; return; }
+      if (this.showModal) { this.showModal = false; return; }
+      if (this.folderStack.length > 0) { const prev = this.folderStack.pop(); this.t = prev.t; this.list = prev.list; this.pg = prev.pg; this.hasMore = prev.hasMore; return; }
+      const firstTid = this.categories.length ? String(this.categories[0].type_id) : '';
+      if (firstTid && String(this.t) !== firstTid) { this.changeTab(firstTid, true); return; }
+      // 根状态：双击退出（2s 内第二次真退出，否则 toast 提示并补栈）
+      const now = Date.now();
+      if (now - this.lastBackTs < 2000) { try { history.back(); } catch (e) {} return; }
+      this.lastBackTs = now;
+      this.__toast('再按一次返回键退出');
+      try { history.pushState({ n: now }, ''); } catch (e) {}
+    },
+    navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
+    navHome() {
+      const firstTid = this.categories.length ? this.categories[0].type_id : '';
+      if (!firstTid) return;
+      if (String(this.t) === String(firstTid)) { if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      this.changeTab(firstTid);
+    },
+    openSearch() { this.showSearchBar = true; this.$nextTick(() => { const el = document.querySelector('.ss-box input'); if (el) el.focus(); }); },
+    doSearchGo() {
+      const kw = (this.searchWord || '').trim();
+      if (!kw) return;
+      this.showSearchBar = false;
+      if (String(this.t) !== '__search__') {
+        this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
+        try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
+      }
+      this.doSearch();
+    },
+    __toast(msg) {
+      try {
+        let el = document.getElementById('mlz-toast');
+        if (!el) { el = document.createElement('div'); el.id = 'mlz-toast'; el.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);z-index:2000;background:rgba(40,40,48,.95);color:#fff;font-size:13px;padding:10px 18px;border-radius:12px;pointer-events:none;transition:opacity .25s;opacity:0;'; document.body.appendChild(el); }
+        el.textContent = msg; el.style.opacity = '1';
+        clearTimeout(this.__toastT);
+        this.__toastT = setTimeout(() => { el.style.opacity = '0'; }, 1800);
+      } catch (e) {}
+    },
     async onSourcePillClick() {
       // WebHTV fm 桥单源模式：跳壳子原生源选择界面（theme.json 权限 app.openSite）
       try {
@@ -828,8 +896,9 @@ createApp({
       }
     },
 
-    async changeTab(tid) {
+    async changeTab(tid, fromBack) {
       this.t = tid; this.folderStack = []; this.selectedFilters = {}; this.hasMore = true; this.heroIdx = 0;
+      if (!fromBack) { try { history.pushState({ n: Date.now() }, ''); } catch (e) {} }
       this.$nextTick(() => { const el = document.getElementById('chip-'+tid); if (el) el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); });
       await this.fetchCategoryData(tid, 1, false);
     },
@@ -837,6 +906,7 @@ createApp({
     clickCard(v) {
       if (v.vod_tag === 'folder') {
         this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
+        try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
         this.t = v.vod_id; this.loadFolder(v.vod_id);
       } else {
         (async () => {
