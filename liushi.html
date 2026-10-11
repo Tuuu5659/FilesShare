@@ -762,6 +762,18 @@ createApp({
       try {
         const res = await callNative('getCategoryContentAsync', this.sourceType, this.currentSite, String(tid), String(pageNum), this.getCleanFilterJson());
         const newItems = this.normalizeList(res);
+        if (!append && res && res.filters) {
+          // 二级分类经壳子筛选器引用回流（v2）：并入 allFilters 驱动筛选入口
+          const _af = {}; const _rf2 = res.filters;
+          for (const _k in _rf2) {
+            _af[_k] = (_rf2[_k] || []).map(g => ({
+              key: g.key || '',
+              name: g.name || g.key || '',
+              value: (g.values || g.value || []).map(o => ({ v: (o.v !== undefined ? o.v : (o.value !== undefined ? o.value : '')), n: (o.n !== undefined ? o.n : (o.name !== undefined ? o.name : '')) }))
+            }));
+          }
+          this.allFilters = _af;
+        }
         if (append) {
           this.list = this.list.concat(newItems);
         } else {
