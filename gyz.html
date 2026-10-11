@@ -361,11 +361,11 @@ window.__onNativeError = (id, err) => {
   function __picHash(s) { let h = 0; s = String(s || ''); for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; } return Math.abs(h); }
   function __picFix(name, pic) {
     let p = String(pic || '');
-    const m = p.match(/^http:\/\/127\.0\.0\.1:99\d\d\/file\/mlz\/(?:base\/)?lib\/icons\/(ic1_[\w.-]+\.png)$/);
+    const m = p.match(/^http:\/\/127\.0\.0\.1:99\d\d\/file\/mlz\/(?:base\/)?lib\/icons\/(ic1_[\w.-]+\.png)(?:\?.*)?$/);
     if (m) return __PIC_BASE + m[1];               // 本机 icons → 同源重写
     if (p && p.indexOf('http') === 0 && p.indexOf('https://') !== 0) {
       // 其他 http 资源同样尝试走同源 icons（是 icons 就换，不是保持）
-      const m2 = p.match(/\/lib\/icons\/(ic1_[\w.-]+\.png)$/);
+      const m2 = p.match(/\/lib\/icons\/(ic1_[\w.-]+\.png)(?:\?.*)?$/);
       if (m2) return __PIC_BASE + m2[1];
     }
     if (p) return p;
