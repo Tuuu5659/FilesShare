@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="referrer" content="no-referrer">
 <title>影视流光</title>
-<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<!-- CDN 预连接：首屏省掉 DNS + TLS 握手往返 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 /* 状态栏安全区 */
@@ -611,7 +614,7 @@ async function fmReady() {
   const t0 = Date.now();
   while (!window.fm || !fm.vodHome) {
     if (Date.now() - t0 > 20000) throw new Error('fm bridge timeout');
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 50));
   }
 }
 
@@ -621,6 +624,12 @@ createApp({
 // 且 applyTheme 里的 saveUserPreference 只被壳子当偏好存档、不回传页面 → layoutMode 若硬编码，
 // 每次重开首页/重进抽屉都会退回默认「2列海报」。故与主题键分开落 localStorage。
 const LAYOUT_MODES = ['poster', 'compact', 'feed', 'list_img', 'list_text'];
+// 冷启动空态自愈：首页 tab 首次拉空（后台推荐还在采样）或桥首次超时/抖动 →
+// 隔 EMPTY_RETRY_DELAY 自动重试（期间保持转圈不落「暂无内容」）；重试耗尽且仍停在首个 tab
+// 则顺延到下一个分类，保证屏幕一定有内容。
+const EMPTY_RETRY_MAX = 2;
+const EMPTY_RETRY_DELAY = 1500;
+
 function loadLayout() {
   try { const s = localStorage.getItem('gyz_layout'); return LAYOUT_MODES.indexOf(s) >= 0 ? s : 'compact'; }
   catch (e) { return 'compact'; }
@@ -698,6 +707,11 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
         ...(PRESET_THEMES[this.themeKey] || PRESET_THEMES.amber)
       };
     }
+  },
+  beforeUnmount() {
+    this.destroyed = true;
+    this._rtSeq = (this._rtSeq || 0) + 1;   // 作废尚未触发的自动重试定时器
+    if (this._heroTimer) clearInterval(this._heroTimer);
   },
   async mounted() {
     this._heroTimer = setInterval(() => this.heroAdvance(), 5000);   // 轮换内置组件：不再依赖外部 __vue_app__ 代理链
@@ -787,13 +801,45 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     },
 
     /* 统一底层数据抓取接口 */
-    async fetchCategoryData(tid, pageNum = 1, append = false, _retried) {
+    /* 冷启动自愈调度器。
+       ① 结果空或桥失败 → EMPTY_RETRY_DELAY*(n+1) 后重试，_tries 递增；
+       ② 重试耗尽且停在首个 tab → 顺延到下一个分类（idx===0 是死循环保险）；
+       ③ _rtSeq 令牌：用户切 tab 后旧定时器作废，旧 tab 的结果不会灌进新 tab。
+       返回 true = 已接管，调用方不要再落 loading=false / 空态。 */
+    _autoRetry(tid, pageNum, tries, why) {
+      if (tries < EMPTY_RETRY_MAX) {
+        const seq = this._rtSeq || 0;
+        const me = this;
+        const wait = EMPTY_RETRY_DELAY * (tries + 1);
+        console.log('[autoRetry] ' + why + '，' + wait + 'ms 后重试（第 ' + (tries + 1) + '/' + EMPTY_RETRY_MAX + ' 次）');
+        setTimeout(() => {
+          if (me.destroyed || (me._rtSeq || 0) !== seq) return;
+          me.fetchCategoryData(String(tid), pageNum, false, false, tries + 1);
+        }, wait);
+        return true;
+      }
+      const idx = this.categories.findIndex(c => String(c.type_id) === String(tid));
+      if (idx === 0 && this.categories.length > 1 && !this._fallDone) {
+        const nxt = this.categories[1];
+        this._fallDone = true;
+        this.t = nxt.type_id;
+        this.selectedFilters = {};
+        this._fwTab = '';
+        console.log('[autoRetry] 重试耗尽仍为空，顺延到「' + nxt.type_name + '」');
+        this.fetchCategoryData(String(nxt.type_id), 1, false, false, 0);
+        return true;
+      }
+      return false;
+    },
+
+    async fetchCategoryData(tid, pageNum = 1, append = false, _retried, _tries = 0) {
       if (String(tid) === '__home__') {
         // 页面自造的假推荐tab：壳子会话不认识这个引用，绝不能下发桥调用（否则 Unknown type reference→对外 INVALID_ARGUMENT）
         if (!append) { this.list = this.homeCache || []; this.hasMore = false; this.pg = 1; this.loading = false; }
         return;
       }
-      if (!append) { this.loading = true; this.list = []; }
+      if (!append) { this.loading = true; this.list = [];
+        if (_tries === 0) { this._rtSeq = (this._rtSeq || 0) + 1; this._fallDone = false; } }
       this.errorMsg = '';
       try {
         const res = await callNative('getCategoryContentAsync', this.sourceType, this.currentSite, String(tid), String(pageNum), this.getCleanFilterJson());
@@ -824,6 +870,8 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
         this.pagecount = res.pagecount || res.pageCount || 999;
         this.pg = pageNum;
         if (newItems.length === 0 || this.pg >= this.pagecount) this.hasMore = false;
+        // 冷启动自愈：tab 拉回空列表（后台还在采样）不要立刻落「暂无内容」
+        if (!append && newItems.length === 0 && this._autoRetry(String(tid), pageNum, _tries, '空结果')) return;
       } catch(e) {
         const msg = String((e && e.message) || e);
         // v2 会话 invalidate 后页面缓存的 typeId 引用整批失效（壳子报 Unknown type reference→对外 INVALID_ARGUMENT）
@@ -836,6 +884,8 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
             return this.fetchCategoryData(this.t, pageNum, false, true);
           }
         }
+        // 冷启动自愈：桥超时/连接抖动不要直接落「暂无内容」，自动重试
+        if (!append && this._autoRetry(String(this.t), 1, _tries, '请求异常')) return;
         if (!append) this.list = [];
         this.errorMsg = '❌ ' + e;
       }
@@ -967,7 +1017,11 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     selectCatFromModal(tid) { this.showCatModal = false; this.changeTab(tid); },
     async init() {
       try {
-        const res = await callNative('getAllTabsSourcesAsync');
+        // 站点列表与上次选择互不依赖 → 并行发，冷启动省一次完整往返
+        const [res, last] = await Promise.all([
+          callNative('getAllTabsSourcesAsync'),
+          callNative('getLastSelectedSiteAsync')
+        ]);
         this.hostSites = res.host || [];
         this.pySites = res.py || [];
         this.jsSites = res.js || [];
@@ -975,7 +1029,6 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
         this.xlSites = res.xl || [];
         const selfKey = res.selfKey || '';
         const validHostSites = this.hostSites.filter(s => s.key !== selfKey && s.key !== 'exp_ui' && !(s.name && s.name.includes('高级专属UI')));
-        const last = await callNative('getLastSelectedSiteAsync');
         let target = null;
         let targetType = (last && last.type) ? last.type : 'host';
         if (last && last.key && last.key !== selfKey && last.key !== 'exp_ui') {
