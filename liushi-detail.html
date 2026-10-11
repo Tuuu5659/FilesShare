@@ -7,7 +7,8 @@
 <title>光影志 · 详情</title>
 <style>
 /* 状态栏安全区（与首页同款机制） */
-:root { --safe-top: env(safe-area-inset-top, 0px); }
+/* 壳子视口注入只发首页控制器，详情页收不到数据——自带确定性安全区 */
+:root { --safe-top: clamp(env(safe-area-inset-top, 0px), 26px, 40px); }
 html.safe-top-active { --safe-top: min(max(env(safe-area-inset-top, 0px), 24px), 34px); }
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
@@ -18,7 +19,7 @@ html.safe-top-active { --safe-top: min(max(env(safe-area-inset-top, 0px), 24px),
   --pill-border:rgba(255,255,255,0.1);--input-bg:rgba(0,0,0,0.28);
 }
 html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 42%,var(--bg-3) 100%);}
-main{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:var(--safe-top);}
+main{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .serif{font-family:"Songti SC","STSong",Georgia,"Times New Roman",serif;}
 .mono{font-family:"SF Mono",Consolas,monospace;}
 
@@ -26,7 +27,7 @@ main{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
 .topbar{
   position:sticky;top:0;z-index:900;
   display:flex;align-items:center;gap:12px;
-  padding:10px 16px;
+  padding:calc(var(--safe-top) + 10px) 16px 10px 16px;
   background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0));
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 }
@@ -531,7 +532,9 @@ footer{padding:28px 16px 38px 16px;text-align:center;font-size:10px;letter-spaci
         var id = String(e.episodeId || '');
         var on = id === st.episodeId ? ' on' : '';
         var playable = !!(e.playRef || e.url);
-        var label = e.number ? String(e.number) : (e.name ? String(e.name) : String(off + i + 1));
+        var nm = e.name ? String(e.name).trim() : '';
+        var num = Number(e.number);
+        var label = (num > 0 ? String(num) : (nm && !/^-$|^-\d+$/.test(nm) ? nm : String(off + i + 1)));
         return '<div class="ep' + on + (playable ? '' : ' no') + '" tabindex="0" data-episode-id="' + esc(id) + '" title="' + esc(e.name || '') + '">' + esc(label) + '</div>';
       }).join('');
     }
