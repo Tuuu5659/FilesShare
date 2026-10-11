@@ -18,14 +18,14 @@ body { padding-top: 0; }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
 :root{
   --nav-h:74px;
-  --nav-inset:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom, 0px));
+  --nav-inset:min(calc(var(--nav-h) + 14px + env(safe-area-inset-bottom, 0px)), 120px);
   --accent:#FF6B35;--accent-text:#FFFFFF;--bg-1:#2a1108;--bg-2:#1a0f08;--bg-3:#160c06;
   --card-bg:#2a1810;--panel-bg:#20130c;--text:#FFFFFF;--text-sub:rgba(255,255,255,0.55);
   --line:rgba(255,255,255,0.08);--pill-bg:rgba(255,255,255,0.08);
   --pill-border:rgba(255,255,255,0.12);--input-bg:rgba(255,255,255,0.06);
 }
 html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg-2);}
-#app{position:relative;z-index:2;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:var(--nav-inset,0px);background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 40%,var(--bg-3) 100%);color:var(--text);}
+#app{position:relative;z-index:2;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 40%,var(--bg-3) 100%);color:var(--text);}
 
 /* 顶部：标题居中，筛选右对齐 */
 .tb-title{display:flex;align-items:center;gap:8px;min-width:0;flex:0 1 auto;max-width:72%;justify-content:center;cursor:pointer;}
@@ -104,7 +104,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .cat-item.active::after{content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:20px;height:3px;border-radius:2px;background:var(--accent);}
 
 /* 滚动区 */
-.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:30px;}
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-inset, 0px) + 12px);}
 .scroll-area::-webkit-scrollbar{display:none;}
 
 /* 沉浸式全宽焦点图：封面平铺整屏 + 自动循环 */
@@ -804,6 +804,7 @@ createApp({
       if (window.NativeBridge && window.NativeBridge.saveUserPreference) {
         if (window.NativeBridge && window.NativeBridge.saveUserPreference) window.NativeBridge.saveUserPreference(this.themeKey, this.layoutMode, t.bg1, '[]', false);
       }
+      try { localStorage.setItem('gyz_theme', this.themeKey); } catch (e) {}
     },
     selectPresetTheme(k) { if (!PRESET_THEMES[k]) return; this.themeKey = k; this.applyTheme(); },
     setLayout(m) { this.layoutMode = m; this.applyTheme(); },
@@ -1111,14 +1112,29 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       } else {
         (async () => {
         const payload = { siteKey: this.currentSite || '', vodId: v.vod_id, title: v.vod_name || '', pic: v.vod_pic || '', content: v.vod_content || v.content || '', remarks: v.vod_remarks || v.vod_remark || '' };
-        // v2 主题已声明 navigation.openDetail 权限，详情页由 manifest 的 detail 页打开。
-        // 切勿在此回退 fm.vod：
-        // 1) 壳子对「副作用」类桥调用有 400ms 最小间隔（REMOTE_ACTION_INTERVAL_MS），
-        //    连续两个副作用调用会被判 RATE_LIMITED，对外是 legacy 码 "BUSY"，
-        //    即用户看到的 "无法打开详情：Error: BUSY"；
-        // 2) player.playVod 只授权给 detail 页，home 页调用会被拒。
+        // 双模式自适应：v2 主题(manifest) 下 openDetail 打开流光详情页；
+        // v1 自定义网址 下 openDetail legacyAllowed=false 被拒（壳子回退原生详情页，
+        // 即用户截图的白底"光影志"），此时改走 player.playVod（v1 放行）。
+        // 硬规则：openDetail 被拒也消耗 400ms 限流槽位，紧跟的副作用调用必须等槽位释放，
+        // 否则 RATE_LIMITED（legacy 码 BUSY）。
+        if (this._directPlay) {
+          try {
+            await fm.vod(payload.siteKey, payload.vodId, payload.title, payload.pic, { content: payload.content, remarks: payload.remarks });
+            this.recordHistory(v);
+          } catch (e0) { alert('无法播放：' + (e0 && e0.message ? e0.message : e0)); }
+          return;
+        }
         try { await fm.openDetail(payload); this.recordHistory(v); }
-        catch (e1) { alert('无法打开详情：' + (e1 && e1.message ? e1.message : e1)); }
+        catch (e1) {
+          const msg = (e1 && e1.message) ? e1.message : String(e1);
+          if (!/PERMISSION_DENIED/i.test(msg)) { alert('无法打开详情：' + msg); return; }
+          this._directPlay = true;
+          await new Promise(r => setTimeout(r, 450));
+          try {
+            await fm.vod(payload.siteKey, payload.vodId, payload.title, payload.pic, { content: payload.content, remarks: payload.remarks });
+            this.recordHistory(v);
+          } catch (e2) { alert('无法播放：' + (e2 && e2.message ? e2.message : e2)); }
+        }
       })();
       }
     },
