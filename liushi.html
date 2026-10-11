@@ -850,12 +850,22 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
           this._fwTab = String(this.t);
           await this.refreshFilters();
         }
-        // liushi 是 v2 主题：typeId 有引用保护，folder 卡的 vod_id 当 typeId 回传必报 Unknown type reference。
-        // 聚合源此时只会下发纯「分类目录页」（全 folder），而该站子分类已由 HOME 的 __sub__ 筛选器下发
-        // → 自动套用第一个子分类值再拉一次，跳过 folder 层，直出首个分类内容；筛选面板照常切换。
+        // liushi 是 v2 主题：typeId 有引用保护，folder 卡的 vodId 当 typeId 回传必报 Unknown type reference。
+        // ⚠ 判定绝不能用卡片字段：WebHomeVodContract.items() 的字段白名单只有
+        //   index/kind/vodId/siteKey/name/pic/remarks/year/typeName/area/director/actor/content/style，
+        //   vod_tag 被整段丢弃；kind 依赖 Vod.isFolder()（聚合源的 folder 卡没设该标志）→ 两者在 v2 下恒 false，
+        //   导致跳层永不触发、十多个源全部落在「分类目录页」（2026-10-11 真机实锤根因）。
+        // 改用聚合源侧的确定契约判定：_subcat_groups 只在 len(分类)>1 时下发 __sub__ 组，
+        //   categoryContent 也只在 len(分类)>1 时出 folder 卡 —— 两者共用同一份 _SUBCAT 缓存，
+        //   故「HOME filters 里有 __sub__ 组」⟺「本次返回的是 folder 卡页」。
+        // → 自动套首个子分类值再拉一次，跳过 folder 层直出首个分类内容，筛选面板照常切换。
+        // ⚠ 防递归条件必须查「是否选过任意筛选」，不能查 selectedFilters[tid]：
+        //   selectedFilters 的 key 是筛选组 key（v2 下是签名引用），而 this.t 是 classTypeId，
+        //   两者不同源 → selectedFilters[tid] 恒为 undefined，去掉卡片字段判定后会无限递归。
+        //   空筛选 ⟺ 刚切进来（changeTab 会清空）⟺ 需要套默认首值；选了筛选（含本方法套的值）⟺ 已定向，不再跳。
         // 非 v2 页面（gyz）不做这步，folder 卡原样下钻。
-        if (!append && newItems.length && newItems.every(it => it.vod_tag === 'folder')
-            && this.selectedFilters[String(this.t)] === undefined) {
+        if (!append && pageNum === 1
+            && Object.keys(this.selectedFilters || {}).length === 0) {
           const sv = this._firstSubVal(String(this.t));
           if (sv) {
             this.selectedFilters = Object.assign({}, this.selectedFilters, { [sv.k]: sv.v });
