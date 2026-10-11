@@ -617,6 +617,15 @@ async function fmReady() {
 
 createApp({
   data() {
+// 排版布局自行持久化：壳子只把主题键回灌 {{__THEME_KEY__}}，layout 没有回灌通道，
+// 且 applyTheme 里的 saveUserPreference 只被壳子当偏好存档、不回传页面 → layoutMode 若硬编码，
+// 每次重开首页/重进抽屉都会退回默认「2列海报」。故与主题键分开落 localStorage。
+const LAYOUT_MODES = ['poster', 'compact', 'feed', 'list_img', 'list_text'];
+function loadLayout() {
+  try { const s = localStorage.getItem('gyz_layout'); return LAYOUT_MODES.indexOf(s) >= 0 ? s : 'compact'; }
+  catch (e) { return 'compact'; }
+}
+function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } catch (e) {} }
     const ik = '{{__THEME_KEY__}}';
     const il = '{{__LAYOUT_MODE__}}';
     return {
@@ -628,7 +637,7 @@ createApp({
       searchWord:'', searchKeyword:'', searchDone:false, pg:1, pagecount:999, hasMore:true, loadingMore:false,
       folderStack:[], homeTid:'', homeCache:[], showThemeDrawer:false, showCatModal:false, showHistoryPanel:false, historyList:[], showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'', navHidden:false, lastScrollTop:0,
       themeKey: (PRESET_THEMES[ik] && ik.indexOf('{{') < 0 ? ik : 'pornhub'),
-      layoutMode: 'compact',
+      layoutMode: loadLayout(),
       touchStartX:0, touchStartY:0
     };
   },
@@ -884,6 +893,7 @@ createApp({
         if (window.NativeBridge && window.NativeBridge.saveUserPreference) window.NativeBridge.saveUserPreference(this.themeKey, this.layoutMode, t.bg1, '[]', false);
       }
       try { localStorage.setItem('gyz_theme', this.themeKey); } catch (e) {}
+      saveLayout(this.layoutMode);   // 与主题键分开落盘，见文件内 LAYOUT_MODES 注释
     },
     selectPresetTheme(k) { if (!PRESET_THEMES[k]) return; this.themeKey = k; this.applyTheme(); },
     setLayout(m) { this.layoutMode = m; this.applyTheme(); },
