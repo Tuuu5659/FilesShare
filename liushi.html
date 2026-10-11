@@ -762,17 +762,11 @@ createApp({
       try {
         const res = await callNative('getCategoryContentAsync', this.sourceType, this.currentSite, String(tid), String(pageNum), this.getCleanFilterJson());
         const newItems = this.normalizeList(res);
-        if (!append && res && res.filters) {
-          // 二级分类经壳子筛选器引用回流（v2）：并入 allFilters 驱动筛选入口
-          const _af = {}; const _rf2 = res.filters;
-          for (const _k in _rf2) {
-            _af[_k] = (_rf2[_k] || []).map(g => ({
-              key: g.key || '',
-              name: g.name || g.key || '',
-              value: (g.values || g.value || []).map(o => ({ v: (o.v !== undefined ? o.v : (o.value !== undefined ? o.value : '')), n: (o.n !== undefined ? o.n : (o.name !== undefined ? o.name : '')) }))
-            }));
-          }
-          this.allFilters = _af;
+        // 二级分类走壳子筛选器：分类响应契约里没有 filters 字段（放进去直接被壳子丢弃），
+        // 聚合源要到本次分类请求里才探明该站 class 并发进缓存 → 这里补拉一次 HOME 把筛选入口合并出来
+        if (!append && this.t && String(this.t) !== '__home__' && this._fwTab !== String(this.t)) {
+          this._fwTab = String(this.t);
+          this.refreshFilters();
         }
         if (append) {
           this.list = this.list.concat(newItems);
@@ -1083,7 +1077,7 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       this.currentSite = s.key;
       this.currentSiteName = s.name;
       this.showModal = false;
-      this.t = ''; this.categories = []; this.list = []; this.heroIdx = 0;
+      this.t = ''; this.categories = []; this.list = []; this.heroIdx = 0; this._fwTab = '';
       this.folderStack = []; this.allFilters = {}; this.selectedFilters = {};
       this.searchWord = ''; this.searchKeyword = ''; this.searchDone = false;
       this.errorMsg = ''; this.pg = 1; this.hasMore = true; this.loadingMore = false;
@@ -1148,8 +1142,38 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       }
     },
 
+    /* 二级分类筛选入口（v2 唯一通道）：壳子只对 HOME 响应的 filters 签引用，且分组键走 issueType ——
+       与同名 class 的 typeId 拿到同一个引用；分类响应契约里没有 filters 字段。聚合源在本次分类请求
+       里才探明该站 class，所以这里补拉一次 HOME 合并出筛选组。会话若已失效重签（class 数量/名称序列
+       变化）则放弃，避免把新一批引用与旧 tab 引用错位配对 */
+    async refreshFilters() {
+      try {
+        const res = await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
+        const rf = res && res.filters;
+        const inc = res && (res.class || res.classes || []);
+        if (!rf || typeof rf !== 'object' || !inc.length || !this.categories.length) return;
+        if (inc.length !== this.categories.length) return;
+        let same = true;
+        for (let i = 0; i < inc.length; i++) {
+          if (String((inc[i] || {}).type_name || '') !== String((this.categories[i] || {}).type_name || '')) { same = false; break; }
+        }
+        if (!same) return;
+        const af = Object.assign({}, this.allFilters || {});
+        let added = false;
+        for (const k in rf) {
+          const groups = (rf[k] || []).map(g => ({
+            key: g.key || '',
+            name: g.name || g.key || '',
+            value: (g.values || g.value || []).map(o => ({ v: (o.v !== undefined ? o.v : (o.value !== undefined ? o.value : '')), n: (o.n !== undefined ? o.n : (o.name !== undefined ? o.name : '')) }))
+          })).filter(g => g.key && g.value.length);
+          if (groups.length) { af[String(k)] = groups; added = true; }
+        }
+        if (added) this.allFilters = af;
+      } catch(e) { /* 筛选入口是增强项，失败不影响列表显示 */ }
+    },
+
     async changeTab(tid, fromBack) {
-      this.t = tid; this.baseTab = tid; this.folderStack = []; this.selectedFilters = {}; this.hasMore = true; this.heroIdx = 0;
+      this.t = tid; this.baseTab = tid; this.folderStack = []; this.selectedFilters = {}; this._fwTab = ''; this.hasMore = true; this.heroIdx = 0;
       if (!fromBack) { try { history.pushState({ n: Date.now() }, ''); } catch (e) {} }
       this.$nextTick(() => { const el = document.getElementById('chip-'+tid); if (el) el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); });
       await this.fetchCategoryData(tid, 1, false);
