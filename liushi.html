@@ -115,7 +115,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .scroll-area::-webkit-scrollbar{display:none;}
 
 /* 沉浸式全宽焦点图：封面平铺整屏 + 自动循环 */
-:root{--hero-h:min(360px,34vh);--hero-ms:5000ms;}
+:root{--hero-h:min(320px,31vh);--hero-ms:5000ms;}
 .hero-wrap{padding:0;margin:0;position:relative;flex-shrink:0;}
 .hero-card{position:relative;width:100%;height:var(--hero-h);overflow:hidden;background:linear-gradient(135deg,#17172a 0%,#0a0a14 100%);cursor:pointer;box-shadow:0 14px 40px rgba(0,0,0,0.55);transition:transform .18s ease;}
 .hero-card:active{transform:scale(0.994);}
@@ -127,7 +127,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .hero-info{flex:1;min-width:0;padding-bottom:4px;}
 @keyframes heroZoom{from{transform:scale(1);}to{transform:scale(1.13);}}
 .hero-shade{position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52) 0%,rgba(0,0,0,0.08) 20%,rgba(0,0,0,0) 40%,rgba(0,0,0,0.36) 62%,rgba(0,0,0,0.8) 87%,rgba(0,0,0,0.97) 100%),linear-gradient(90deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.14) 36%,rgba(0,0,0,0) 60%);}
-.hero-topbar{position:absolute;top:16px;left:22px;z-index:4;display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:1px;color:#fff;padding:7px 13px;border-radius:20px;background:rgba(0,0,0,0.42);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);}
+.hero-topbar{align-self:flex-start;margin-bottom:10px;z-index:4;display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:1px;color:#fff;padding:7px 13px;border-radius:20px;background:rgba(0,0,0,0.42);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);}
 .hero-topbar i{color:var(--accent);font-size:11px;}
 .hero-topbar .sep{opacity:.42;}
 .hero-inner{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:18px 22px 32px 22px;}
@@ -135,9 +135,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .hero-remarks{font-size:12px;color:rgba(255,255,255,0.9);font-weight:600;margin-bottom:12px;text-shadow:0 2px 10px rgba(0,0,0,0.85);letter-spacing:0.5px;}
 .hero-cta{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:9px 18px;border-radius:22px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:700;box-shadow:0 10px 26px rgba(0,0,0,0.5);letter-spacing:0.5px;}
 .hero-cta i{font-size:11px;}
-.hero-dots{position:absolute;bottom:14px;right:22px;display:flex;gap:5px;z-index:4;}
+.hero-dots{position:absolute;top:50%;right:12px;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:4;}
 .hero-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.32);transition:all 0.28s ease;cursor:pointer;}
-.hero-dot.active{width:22px;border-radius:4px;background:var(--accent);box-shadow:0 0 10px var(--accent);}
+.hero-dot.active{height:22px;border-radius:4px;background:var(--accent);box-shadow:0 0 10px var(--accent);}
 .hero-prog{position:absolute;left:0;bottom:0;height:2px;width:100%;background:rgba(255,255,255,0.12);z-index:4;}
 .hero-prog-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),rgba(255,255,255,0.85));animation:heroProg var(--hero-ms) linear forwards;}
 @keyframes heroProg{from{width:0;}to{width:100%;}}
@@ -227,7 +227,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .site-check{font-size:18px;margin-left:8px;cursor:pointer;flex-shrink:0;padding:4px;}
 .site-check.checked{color:var(--accent);}.site-check.unchecked{color:var(--text-sub);opacity:0.5;}
 
-.drawer-sheet{position:fixed;left:0;right:0;bottom:var(--nav-inset,0px);max-height:60vh;background:var(--panel-bg);border-top:1.5px solid var(--accent);border-radius:22px 22px 0 0;z-index:1010;padding:16px 16px 26px 16px;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,0.5);}
+.drawer-sheet{position:fixed;left:0;right:0;bottom:var(--nav-inset,0px);max-height:82vh;background:var(--panel-bg);border-top:1.5px solid var(--accent);border-radius:22px 22px 0 0;z-index:1010;padding:20px 18px 30px 18px;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,0.5);}
 .drawer-sheet::-webkit-scrollbar{display:none;}
 .drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
 .drawer-head .t{font-size:14px;font-weight:700;color:var(--accent);}
@@ -239,17 +239,20 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
 /* 筛选 Chips */
 .filter-group{margin-bottom:14px;}
-.filter-group-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;}
-.filter-chips{display:flex;flex-wrap:wrap;gap:6px;}
-.filter-chip{padding:6px 13px;border-radius:12px;font-size:12px;color:var(--text);background:var(--pill-bg);border:1px solid var(--line);cursor:pointer;}
+.filter-group-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;}
+.filter-chips{display:flex;flex-wrap:wrap;gap:10px;}
+.filter-chip{padding:11px 18px;border-radius:14px;font-size:14px;color:var(--text);background:var(--pill-bg);border:1px solid var(--line);cursor:pointer;}
 .filter-chip.active{background:var(--accent);color:var(--accent-text);font-weight:700;border-color:transparent;}
 
 /* 分类全屏弹窗 */
-.cat-sheet{width:100%;height:65vh;background:var(--panel-bg);border-top:1.5px solid var(--accent);border-radius:22px 22px 0 0;padding:16px 18px calc(24px + var(--nav-inset,0px)) 18px;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,0.5);}
-.cat-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:42px;gap:10px;padding:4px 2px 30px 2px;}
+.cat-sheet{width:100%;height:82vh;background:var(--panel-bg);border-top:1.5px solid var(--accent);border-radius:22px 22px 0 0;padding:18px 18px calc(26px + var(--nav-inset,0px)) 18px;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,0.5);}
+.cat-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:52px;gap:10px;padding:4px 2px 30px 2px;}
 .cat-grid::-webkit-scrollbar{display:none;}
-.cat-grid-item{height:42px;display:flex;align-items:center;justify-content:center;padding:0 6px;background:var(--pill-bg);border:1px solid var(--line);border-radius:10px;font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+.cat-grid-item{height:52px;display:flex;align-items:center;justify-content:center;padding:0 8px;background:var(--pill-bg);border:1px solid var(--line);border-radius:10px;font-size:14px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
 .cat-grid-item.active{background:var(--accent);color:var(--accent-text);font-weight:700;border-color:transparent;}
+.cat-group-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;flex-shrink:0;}
+.cat-group-chip{padding:9px 16px;border-radius:14px;font-size:13.5px;font-weight:600;background:var(--pill-bg);border:1px solid var(--line);color:var(--text);cursor:pointer;}
+.cat-group-chip.active{background:var(--accent);color:var(--accent-text);border-color:transparent;font-weight:700;}
 </style>
 </head>
 <body>
@@ -260,7 +263,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
     <div class="tb-spacer"></div>
     <div class="tb-title" @click="onSourcePillClick">
       <span class="badge" :class="sourceType">{{sourceType}}</span>
-      <span class="tt-name">{{currentSiteName||'影视流光'}}</span>
+      <span class="tt-name">{{currentSiteName||'影视聚合'}}</span>
       <i class="fas fa-chevron-down tb-chev"></i>
     </div>
     <div class="tb-actions">
@@ -276,6 +279,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
     <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
   </div>
+  <div class="filter-fab" @click="showCatModal=true" title="全部源/分类"><i class="fas fa-th-large"></i></div>
   <div class="filter-fab" v-if="hasFilters" :class="{on: selectedFilterCount>0}" @click="showFilter=true"><i class="fas fa-filter"></i></div>
   </div>
 
@@ -324,14 +328,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
     </div>
   </div>
 
-  <!-- 分类栏：支持点击当前分类刷新 -->
-  <div class="cat-bar" ref="catBar">
-    <div v-for="c in categories" :key="c.type_id" :id="'chip-'+c.type_id" class="cat-item" :class="{active:String(curTabId)===String(c.type_id)}" @click="clickCategoryTab(c.type_id)">{{c.type_name}}</div>
-    <div id="chip-__search__" class="cat-item" :class="{active:t==='__search__'}" @click="clickSearchChip" style="padding-left:8px;">
-      <i class="fas fa-search" style="font-size:12px;margin-right:5px;"></i>搜索
-    </div>
-    <div class="cat-item" @click="showCatModal=true" style="padding-left:8px;"><i class="fas fa-th-large"></i></div>
-  </div>
+  <!-- 分类栏已移入浮动「全部源」面板（showCatModal） -->
 
   <div class="scroll-area" ref="scrollContainer" @scroll="handleGridScroll" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
         <!-- 沉浸式全宽焦点图：封面平铺整屏，自动循环切换 -->
@@ -344,12 +341,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
           </div>
         </Transition>
         <div class="hero-shade"></div>
-        <div class="hero-topbar"><i class="fas fa-fire"></i>焦点<span class="sep">·</span>{{heroIdx+1}}/{{topBanners.length}}</div>
         <div class="hero-inner">
           <Transition name="hero-t" mode="out-in">
             <div class="hero-pair" :key="heroIdx">
               <img class="hero-poster" :src="topBanners[heroIdx].vod_pic||__picFix(topBanners[heroIdx].vod_name||'','')" alt="" @error="onImgErr($event, topBanners[heroIdx].vod_name)">
               <div class="hero-info">
+                <div class="hero-topbar"><i class="fas fa-fire"></i>焦点<span class="sep">·</span>{{heroIdx+1}}/{{topBanners.length}}</div>
                 <div class="hero-title">{{topBanners[heroIdx].vod_name||'未知片名'}}</div>
                 <div class="hero-remarks" v-if="topBanners[heroIdx].vod_remarks">{{topBanners[heroIdx].vod_remarks}}</div>
                 <div class="hero-cta"><i class="fas fa-play"></i>立即观看</div>
@@ -392,10 +389,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   <div class="drawer-sheet" v-if="showFilter">
     <div class="drawer-head">
       <span class="t"><i class="fas fa-filter"></i> 影视分类筛选</span>
-      <div style="display:flex;gap:12px;align-items:center;">
-        <span style="font-size:12.5px;color:var(--accent);cursor:pointer;font-weight:700;" @click="resetFilters">重置</span>
-        <span style="font-size:12.5px;padding:3px 10px;border-radius:10px;background:var(--accent);color:var(--accent-text);cursor:pointer;font-weight:700;" @click="showFilter=false">确定</span>
-      </div>
+      <i class="fas fa-times" style="cursor:pointer;color:var(--text);font-size:16px;" @click="showFilter=false"></i>
     </div>
     <div v-for="g in currentCatFilters" :key="g.key" class="filter-group">
       <div class="filter-group-title">{{g.name}}</div>
@@ -409,11 +403,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   <div class="overlay" v-if="showCatModal" @click.self="showCatModal=false">
     <div class="cat-sheet">
       <div class="drawer-head">
-        <span class="t"><i class="fas fa-list"></i> 全部分类 ({{categories.length}})</span>
+        <span class="t"><i class="fas fa-th-large"></i> 全部源 ({{panelSources.length}})</span>
         <i class="fas fa-times" @click="showCatModal=false"></i>
       </div>
+      <div class="cat-group-bar" v-if="catGroups.length>1">
+        <div v-for="g in catGroups" :key="g" class="cat-group-chip" :class="{active:catGroupSel===g}" @click="catGroupSel=g">{{g}}</div>
+      </div>
       <div class="cat-grid">
-        <div v-for="c in categories" :key="c.type_id" class="cat-grid-item" :class="{active:String(t)===String(c.type_id)}" @click="selectCatFromModal(c.type_id)">{{c.type_name}}</div>
+        <div v-for="c in panelSources" :key="c.type_id" class="cat-grid-item" :class="{active:String(t)===String(c.type_id)}" @click="selectCatFromModal(c.type_id)">{{panelLabel(c.type_name)}}</div>
       </div>
     </div>
   </div>
@@ -624,15 +621,13 @@ createApp({
 // 且 applyTheme 里的 saveUserPreference 只被壳子当偏好存档、不回传页面 → layoutMode 若硬编码，
 // 每次重开首页/重进抽屉都会退回默认「2列海报」。故与主题键分开落 localStorage。
 const LAYOUT_MODES = ['poster', 'compact', 'feed', 'list_img', 'list_text'];
-// 冷启动空态自愈：首页 tab 首次拉空（后台推荐/宿主后端还在热身）或桥首次超时/抖动 →
-// 持续自动重试（期间保持转圈不落「暂无内容」），直到后端就绪拿到数据；重试耗尽且仍停在
-// 首个 tab 则顺延到下一个分类，保证屏幕一定有内容。
-// ★ 冷启动根治：WebHTV 刚打开时宿主源后端未热身，首帧必空。旧配置 5 次/累计 22.5s 不够，
-//   backend 热身慢时就停在「点击重试」。改为 MAX=20 + 单次间隔封顶 3s（响应仍快），
-//   累计覆盖约 58s 的持续转圈，几乎必然等到后端就绪，用户无需手动点。
-const EMPTY_RETRY_MAX = 20;
+// 冷启动空态自愈：首页 tab 首次拉空（后台推荐还在采样）或桥首次超时/抖动 →
+// 隔 EMPTY_RETRY_DELAY 自动重试（期间保持转圈不落「暂无内容」）；重试耗尽且仍停在首个 tab
+// 则顺延到下一个分类，保证屏幕一定有内容。
+// 后端推荐采样预算约 8s（REC_BUDGET），重试窗口必须覆盖它，否则在采样完成前就放弃 →
+// 用户看到「点击重试」。MAX=5 累计 1.5+3+4.5+6+7.5=22.5s，足够盖住冷启动首次采样。
+const EMPTY_RETRY_MAX = 5;
 const EMPTY_RETRY_DELAY = 1500;
-const EMPTY_RETRY_CAP = 3000;   // 单次重试间隔上限（避免越等越久）
 
 function loadLayout() {
   try { const s = localStorage.getItem('gyz_layout'); return LAYOUT_MODES.indexOf(s) >= 0 ? s : 'compact'; }
@@ -648,7 +643,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       heroIdx:0, loading:false, errorMsg:'', showModal:false, searchKw:'',
       excludedSites:{}, allFilters:{}, selectedFilters:{}, showFilter:false,
       searchWord:'', searchKeyword:'', searchDone:false, pg:1, pagecount:999, hasMore:true, loadingMore:false,
-      folderStack:[], homeTid:'', homeCache:[], showThemeDrawer:false, showCatModal:false, showHistoryPanel:false, historyList:[], showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'', navHidden:false, lastScrollTop:0,
+      folderStack:[], homeTid:'', homeCache:[], showThemeDrawer:false, showCatModal:false, catGroupSel:'全部', showHistoryPanel:false, historyList:[], showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'', navHidden:false, lastScrollTop:0,
       themeKey: (PRESET_THEMES[ik] && ik.indexOf('{{') < 0 ? ik : 'pornhub'),
       layoutMode: loadLayout(),
       touchStartX:0, touchStartY:0
@@ -696,6 +691,30 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       return this.allFilters[String(this.t)] || this.allFilters[this.t] || [];
     },
     hasFilters() { return this.currentCatFilters && this.currentCatFilters.length > 0; },
+    catGroups() {
+      const set = [];
+      for (const c of this.categories) {
+        const id = String(c.type_id || '');
+        if (id === '__REC__' || id === '__GRP__' || id === '__search__' || id === '__home__') continue;
+        const nm = String(c.type_name || '');
+        const g = nm.includes('/') ? nm.split('/')[0] : '其他';
+        if (set.indexOf(g) < 0) set.push(g);
+      }
+      return set.length > 1 ? ['全部', ...set] : [];
+    },
+    panelSources() {
+      const sel = this.catGroupSel;
+      const out = [];
+      for (const c of this.categories) {
+        const id = String(c.type_id || '');
+        if (id === '__REC__' || id === '__GRP__' || id === '__search__' || id === '__home__') continue;
+        const nm = String(c.type_name || '');
+        const g = nm.includes('/') ? nm.split('/')[0] : '其他';
+        if (sel && sel !== '全部' && g !== sel) continue;
+        out.push(c);
+      }
+      return out;
+    },
     selectedFilterCount() {
       if (!this.selectedFilters) return 0;
       let c = 0;
@@ -814,7 +833,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       if (tries < EMPTY_RETRY_MAX) {
         const seq = this._rtSeq || 0;
         const me = this;
-        const wait = Math.min(EMPTY_RETRY_DELAY * (tries + 1), EMPTY_RETRY_CAP);
+        const wait = EMPTY_RETRY_DELAY * (tries + 1);
         console.log('[autoRetry] ' + why + '，' + wait + 'ms 后重试（第 ' + (tries + 1) + '/' + EMPTY_RETRY_MAX + ' 次）');
         setTimeout(() => {
           if (me.destroyed || (me._rtSeq || 0) !== seq) return;
@@ -1029,6 +1048,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       this.loadingMore = false;
     },
     selectCatFromModal(tid) { this.showCatModal = false; this.changeTab(tid); },
+    panelLabel(nm) { nm = String(nm || ''); if (nm.includes('/')) nm = nm.split('/').slice(1).join('/'); return nm.replace(/^(a-|n-)/, ''); },
     async init() {
       try {
         // 站点列表与上次选择互不依赖 → 并行发，冷启动省一次完整往返
@@ -1153,7 +1173,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     heroGo(i){ this.heroIdx = i; this.heroRestart(); },
     heroAdvance(){ if (this.topBanners && this.topBanners.length > 1) this.heroIdx = (this.heroIdx + 1) % this.topBanners.length; },
     heroRestart(){ if (this._heroTimer) clearInterval(this._heroTimer); this._heroTimer = setInterval(() => this.heroAdvance(), 5000); },
-navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
+navBack() { this.goBackCore(); },
     navHome() {
       const firstTid = this.categories.length ? this.categories[0].type_id : '';
       if (!firstTid) return;
@@ -1203,54 +1223,13 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       this.folderStack = []; this.allFilters = {}; this.selectedFilters = {};
       this.searchWord = ''; this.searchKeyword = ''; this.searchDone = false;
       this.errorMsg = ''; this.pg = 1; this.hasMore = true; this.loadingMore = false;
-      this._bootSeq = (this._bootSeq || 0) + 1;   // 作废上一个源遗留的冷启动重试定时器
       callNative('saveLastSelectedSite', type, s.key, s.name || '');
       if (type === 'host' || type === 'xl') callNative('setHostHomeSite', s.key);
-      // 跨源首页缓存：换回已访问过的源 → 秒出上次首页，不重拉（解决「切源再切回要重新加载」）。
-      // v2 的 typeId/filters 引用是签名票据、会随会话失效，所以缓存后进分类仍可能需重拉，
-      // 但首页列表、分类 tab、焦点图能立刻显示，体感从「转圈数秒」变「秒开」。
-      const ck = type + '|' + s.key;
-      const cached = this._siteHomeCache && this._siteHomeCache[ck];
-      if (cached && (Date.now() - cached.ts) < 600000) {   // 10 分钟内有效
-        this.categories = cached.categories;
-        this.allFilters = cached.allFilters || {};
-        this.homeTid = cached.homeTid || '';
-        this.homeCache = cached.homeCache || [];
-        this.t = cached.t || '';
-        this.list = cached.list || [];
-        this.hasMore = cached.hasMore;
-        this.pagecount = cached.pagecount || 999;
-        this.loading = false;
-        return;
-      }
       await this.loadHome();
     },
 
-    /* 把当前源的首页状态存进内存缓存，换回该源时秒出（见 pickSite 读缓存处）。 */
-    _saveSiteHome() {
-      try {
-        if (!this._siteHomeCache) this._siteHomeCache = {};
-        const ck = this.sourceType + '|' + this.currentSite;
-        this._siteHomeCache[ck] = {
-          ts: Date.now(),
-          categories: this.categories,
-          allFilters: this.allFilters,
-          homeTid: this.homeTid,
-          homeCache: this.homeCache,
-          t: this.t,
-          list: this.list,
-          hasMore: this.hasMore,
-          pagecount: this.pagecount
-        };
-        // 控量：最多留 12 个源的首页缓存，超出删最旧
-        const keys = Object.keys(this._siteHomeCache);
-        if (keys.length > 12) {
-          keys.sort((a, b) => this._siteHomeCache[a].ts - this._siteHomeCache[b].ts);
-          delete this._siteHomeCache[keys[0]];
-        }
-      } catch (e) {}
-    },
-    async loadHome(_boot) {
+    /* ★ 核心攻坚：无推荐页时，直接把第 1 个分类作为首页拉取数据，焦点图自动展示前 8 部影片 */
+    async loadHome() {
       this.loading = true; this.errorMsg = ''; this.folderStack = [];
       try {
         const res = await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
@@ -1269,25 +1248,7 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
         }
         this.allFilters = _af;
         const homeRecommend = this.normalizeList(res);
-
-        // ★ 冷启动根治：WebHTV 刚打开时宿主源后端未热身，HOME 可能既无推荐又无分类。
-        //   这时不要落「该源未配置分类」空态，而是持续重试直到后端就绪（最多 ~20 次 / 58s）。
-        if (homeRecommend.length === 0 && rawClasses.length === 0) {
-          const bt = (_boot | 0);
-          if (bt < EMPTY_RETRY_MAX) {
-            const seq = (this._bootSeq = (this._bootSeq || 0));
-            const wait = Math.min(EMPTY_RETRY_DELAY * (bt + 1), EMPTY_RETRY_CAP);
-            setTimeout(() => {
-              if (this.destroyed || (this._bootSeq || 0) !== seq) return;
-              this.loadHome(bt + 1);
-            }, wait);
-            return;   // 保持 loading=true（转圈），不落空态
-          }
-          this.categories = []; this.t = ''; this.list = [];
-          this.errorMsg = '该源未配置分类';
-          this.loading = false;
-          return;
-        }
+        if (res && res.source && res.source.name) this.currentSiteName = res.source.name;
 
         // 1. 若源自带首页推荐，正常呈现
         if (homeRecommend.length > 0) {
@@ -1302,7 +1263,6 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
           this.list = homeRecommend;
           this.hasMore = false;
           this.loading = false;
-          this._saveSiteHome();
         } 
         // 2. 若源无首页推荐，直接以第 1 个分类作为首页拉取，焦点图完美轮播
         else if (rawClasses.length > 0) {
@@ -1311,26 +1271,14 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
           this.t = firstTid;
           this.loading = false;
           await this.fetchCategoryData(firstTid, 1, false);
-          this._saveSiteHome();
         } 
-        // 3. 空源（理论到不了，上面已拦截）
+        // 3. 空源
         else {
           this.categories = []; this.t = ''; this.list = [];
           this.errorMsg = '该源未配置分类';
           this.loading = false;
         }
       } catch(e) {
-        // 冷启动桥超时/抖动：持续重试，不直接落错误
-        const bt = (_boot | 0);
-        if (bt < EMPTY_RETRY_MAX) {
-          const seq = (this._bootSeq = (this._bootSeq || 0));
-          const wait = Math.min(EMPTY_RETRY_DELAY * (bt + 1), EMPTY_RETRY_CAP);
-          setTimeout(() => {
-            if (this.destroyed || (this._bootSeq || 0) !== seq) return;
-            this.loadHome(bt + 1);
-          }, wait);
-          return;
-        }
         this.errorMsg = '❌ ' + e;
         this.list = [];
         this.loading = false;
