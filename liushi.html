@@ -1206,10 +1206,50 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
       this._bootSeq = (this._bootSeq || 0) + 1;   // 作废上一个源遗留的冷启动重试定时器
       callNative('saveLastSelectedSite', type, s.key, s.name || '');
       if (type === 'host' || type === 'xl') callNative('setHostHomeSite', s.key);
+      // 跨源首页缓存：换回已访问过的源 → 秒出上次首页，不重拉（解决「切源再切回要重新加载」）。
+      // v2 的 typeId/filters 引用是签名票据、会随会话失效，所以缓存后进分类仍可能需重拉，
+      // 但首页列表、分类 tab、焦点图能立刻显示，体感从「转圈数秒」变「秒开」。
+      const ck = type + '|' + s.key;
+      const cached = this._siteHomeCache && this._siteHomeCache[ck];
+      if (cached && (Date.now() - cached.ts) < 600000) {   // 10 分钟内有效
+        this.categories = cached.categories;
+        this.allFilters = cached.allFilters || {};
+        this.homeTid = cached.homeTid || '';
+        this.homeCache = cached.homeCache || [];
+        this.t = cached.t || '';
+        this.list = cached.list || [];
+        this.hasMore = cached.hasMore;
+        this.pagecount = cached.pagecount || 999;
+        this.loading = false;
+        return;
+      }
       await this.loadHome();
     },
 
-    /* ★ 核心攻坚：无推荐页时，直接把第 1 个分类作为首页拉取数据，焦点图自动展示前 8 部影片 */
+    /* 把当前源的首页状态存进内存缓存，换回该源时秒出（见 pickSite 读缓存处）。 */
+    _saveSiteHome() {
+      try {
+        if (!this._siteHomeCache) this._siteHomeCache = {};
+        const ck = this.sourceType + '|' + this.currentSite;
+        this._siteHomeCache[ck] = {
+          ts: Date.now(),
+          categories: this.categories,
+          allFilters: this.allFilters,
+          homeTid: this.homeTid,
+          homeCache: this.homeCache,
+          t: this.t,
+          list: this.list,
+          hasMore: this.hasMore,
+          pagecount: this.pagecount
+        };
+        // 控量：最多留 12 个源的首页缓存，超出删最旧
+        const keys = Object.keys(this._siteHomeCache);
+        if (keys.length > 12) {
+          keys.sort((a, b) => this._siteHomeCache[a].ts - this._siteHomeCache[b].ts);
+          delete this._siteHomeCache[keys[0]];
+        }
+      } catch (e) {}
+    },
     async loadHome(_boot) {
       this.loading = true; this.errorMsg = ''; this.folderStack = [];
       try {
@@ -1262,6 +1302,7 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
           this.list = homeRecommend;
           this.hasMore = false;
           this.loading = false;
+          this._saveSiteHome();
         } 
         // 2. 若源无首页推荐，直接以第 1 个分类作为首页拉取，焦点图完美轮播
         else if (rawClasses.length > 0) {
@@ -1270,6 +1311,7 @@ navBack() { try { history.back(); } catch (e) { this.goBackCore(); } },
           this.t = firstTid;
           this.loading = false;
           await this.fetchCategoryData(firstTid, 1, false);
+          this._saveSiteHome();
         } 
         // 3. 空源（理论到不了，上面已拦截）
         else {
