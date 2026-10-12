@@ -1355,13 +1355,28 @@ navBack() { this.goBackCore(); },
           this.loading = false;
           this._saveSiteHome();
         } 
-        // 2. 若源无首页推荐，直接以第 1 个分类作为首页拉取，焦点图完美轮播
+        // 2. 若源无首页推荐 → 先试自动钻取第 1 个分类（直出内容 + 焦点图轮播）；
+        //    ★ 2026-10-12 根治：该分类返回空时就地回退成「全部分类文件夹卡」（像 Eclipse），
+        //      不再让整屏落「暂无内容/点击重试」。旧版只自动钻、空了就直接空屏（影搜/影视聚合实锤：
+        //      首分类 items=0）。回退后必须自增 _rtSeq 掐掉 fetchCategoryData 挂起的空结果重试定时器。
         else if (rawClasses.length > 0) {
           this.categories = rawClasses;
           const firstTid = rawClasses[0].type_id;
           this.t = firstTid;
-          this.loading = false;
           await this.fetchCategoryData(firstTid, 1, false);
+          if (!this.list || this.list.length === 0) {
+            // 掐掉挂起的自动重试（否则定时器回来会把这里铺好的卡片覆盖掉）
+            this._rtSeq = (this._rtSeq || 0) + 1;
+            this.list = rawClasses.map(c => ({
+              vod_id: c.type_id,
+              vod_name: c.type_name,
+              vod_tag: 'folder',
+              vod_remarks: '📁 分类',
+              vod_pic: __picFix(c.type_name || '', '')
+            }));
+            this.hasMore = false;
+          }
+          this.loading = false;
           this._saveSiteHome();
         } 
         // 3. 空源（理论到不了，上面已拦截）
