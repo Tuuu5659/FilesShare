@@ -709,11 +709,31 @@ createApp({
       for (let i=0;i<list.length;i++) { if (em[list[i].key]) return false; }
       return true;
     },
+    isFolderOnlyPage() {
+      // 三级（分类选择界面）判据：当前列表整页都是分类文件夹卡。
+      // 该层的筛选组其实是「子分类」导航入口（点一个就等于下钻），不是分类内筛选 → 不显示筛选按钮；
+      // 只有下到四级（分类内条目）才显示。判据同时看 vod_tag=folder 与 📁 前缀（v2 桥会丢 vod_tag）。
+      const L = this.list;
+      if (!L || !L.length) return false;
+      for (let i = 0; i < L.length; i++) {
+        const v = L[i];
+        if (String(v.vod_tag) !== 'folder' && String(v.vod_remarks || '').indexOf('📁') !== 0) return false;
+      }
+      return true;
+    },
     currentCatFilters() {
       if (this.t === '' || this.t === undefined || !this.allFilters) return [];
-      return this.allFilters[String(this.t)] || this.allFilters[this.t] || [];
+      const t = String(this.t);
+      let g = this.allFilters[t];
+      if (!g) {
+        // 四级 tid 形如 子源id\x1f子分类id：先按 t 精确命中聚合源下发的二级键；
+        // 命中不到再回退查 L2 基键（子分类组），保证四级始终有可用筛选组。
+        const base = t.split('\x1f')[0];
+        if (base !== t) g = this.allFilters[base];
+      }
+      return g || [];
     },
-    hasFilters() { return this.currentCatFilters && this.currentCatFilters.length > 0; },
+    hasFilters() { return this.currentCatFilters && this.currentCatFilters.length > 0 && !this.isFolderOnlyPage; },
     catGroups() {
       const set = [];
       for (const c of this.categories) {
@@ -1014,6 +1034,11 @@ createApp({
       if(val === '' || val === undefined || val === null) delete this.selectedFilters[groupKey];
       else this.selectedFilters[groupKey] = val;
       this.selectedFilters = { ...this.selectedFilters };
+      // 四级页面选「子分类」组 = 切到同级分类：把 tid 后段同步换掉，
+      // 让分类路径、二级键命中、返回栈都与实际内容一致（否则 tid 说电影、内容却是动漫）。
+      if(groupKey === '__sub__' && val !== '' && val !== undefined && val !== null && String(this.t).indexOf('\x1f') >= 0) {
+        this.t = String(this.t).split('\x1f')[0] + '\x1f' + val;
+      }
       await this.fetchCategoryData(this.t, 1, false);
     },
     resetFilters() {
