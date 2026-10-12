@@ -279,19 +279,34 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .cat-group-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;flex-shrink:0;}
 .cat-group-chip{padding:9px 16px;border-radius:14px;font-size:13.5px;font-weight:600;background:var(--pill-bg);border:1px solid var(--line);color:var(--text);cursor:pointer;}
 .cat-group-chip.active{background:var(--accent);color:var(--accent-text);border-color:transparent;font-weight:700;}
+
+/* ===== 顶部源选择横条：选择按钮置顶在最前方 ===== */
+.src-pick{flex:0 0 auto;width:38px;height:38px;border-radius:12px;background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .2s cubic-bezier(.2,1.5,.4,1);}
+.src-pick:active{transform:scale(.88);}
+.src-pill-strip{display:flex;align-items:center;gap:7px;min-width:0;flex:0 1 auto;max-width:58%;justify-content:flex-start;cursor:pointer;background:var(--pill-bg);border:1px solid var(--line);border-radius:13px;padding:8px 12px;box-shadow:0 4px 14px rgba(0,0,0,.35);}
+.src-pill-strip .tt-name{font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.2px;}
+.src-pill-strip .tb-chev{font-size:10px;color:var(--text-sub);flex:0 0 auto;}
+/* ===== 下方浮动分组切换键 ===== */
+.grp-fab{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom, 0px) + 76px);z-index:80;display:flex;gap:8px;overflow-x:auto;padding:0 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.grp-fab::-webkit-scrollbar{display:none;}
+.grp-chip{flex:0 0 auto;padding:9px 15px;border-radius:14px;font-size:13px;font-weight:600;background:var(--panel-bg);border:1px solid var(--line);color:var(--text);cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;box-shadow:0 5px 16px rgba(0,0,0,.42);transition:transform .2s cubic-bezier(.2,1.5,.4,1);}
+.grp-chip:active{transform:scale(.92);}
+.grp-chip.on{background:var(--accent);color:var(--accent-text);border-color:transparent;font-weight:700;}
+.grp-chip.grp-more{display:flex;align-items:center;justify-content:center;width:36px;padding:9px 0;}
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- 顶部栏：源选择、搜索、筛选快捷、风格、退出 -->
+  <!-- 顶部源选择横条：选择按钮置顶在最前方，点击直跳壳子原生源选择界面 -->
   <div class="topbar">
-    <div class="tb-spacer"></div>
-    <div class="tb-title" @click="onSourcePillClick">
+    <div class="src-pick" @click="openNativeSitePicker" title="选择数据源"><i class="fas fa-th-large"></i></div>
+    <div class="src-pill-strip" @click="onSourcePillClick">
       <span class="badge" :class="sourceType">{{sourceType}}</span>
       <span class="tt-name">{{currentSiteName||'影视聚合'}}</span>
       <i class="fas fa-chevron-down tb-chev"></i>
     </div>
+    <div class="tb-spacer"></div>
     <div class="tb-actions">
       <div class="top-icon" @click="showThemeDrawer=true" title="主题"><i class="fas fa-palette"></i></div>
     </div>
@@ -305,7 +320,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
     <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
   </div>
-  <div class="filter-fab" @click="showCatModal=true" title="全部源/分类"><i class="fas fa-th-large"></i></div>
   <div class="filter-fab" v-if="hasFilters" :class="{on: selectedFilterCount>0}" @click="showFilter=true"><i class="fas fa-filter"></i></div>
   </div>
 
@@ -425,6 +439,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
     </div>
   </div>
 
+  <!-- 下方浮动分组切换键：直接切分组并进该组第一个分类 -->
+  <div class="grp-fab" v-if="catGroups.length>0 || categories.length>0">
+    <div v-for="g in catGroups" :key="'g'+g" class="grp-chip" :class="{on:catGroupSel===g}" @click="switchGroup(g)">{{g}}</div>
+    <div class="grp-chip grp-more" @click="showCatModal=true" title="全部分类"><i class="fas fa-th-large"></i></div>
+  </div>
+
   <!-- 分类全屏弹窗 -->
   <div class="overlay" v-if="showCatModal" @click.self="showCatModal=false">
     <div class="cat-sheet">
@@ -437,39 +457,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       </div>
       <div class="cat-grid">
         <div v-for="c in panelSources" :key="c.type_id" class="cat-grid-item" :class="{active:String(t)===String(c.type_id)}" @click="selectCatFromModal(c.type_id)">{{panelLabel(c.type_name)}}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 数据源选择弹窗 -->
-  <div class="overlay" v-if="showModal" @click.self="showModal=false">
-    <div class="modal">
-      <div class="modal-head">
-        <span>数据源选择 ({{filteredSites.length}})</span>
-        <i class="fas fa-times" @click="showModal=false"></i>
-      </div>
-      <div class="tab-bar">
-        <div class="tab-btn" :class="{active:activeTab==='host'}" @click="switchTab('host')">宿主 ({{hostSites.length}})</div>
-        <div class="tab-btn" :class="{active:activeTab==='py'}" @click="switchTab('py')">Py ({{pySites.length}})</div>
-        <div class="tab-btn" :class="{active:activeTab==='js'}" @click="switchTab('js')">Js ({{jsSites.length}})</div>
-        <div class="tab-btn" :class="{active:activeTab==='cj'}" @click="switchTab('cj')">采集源 ({{cjSites.length}})</div>
-        <div class="tab-btn" :class="{active:activeTab==='xl'}" @click="switchTab('xl')">额外线路 ({{xlSites.length}})</div>
-      </div>
-      <div class="sub-bar">
-        <div class="sub-btn" :class="{active:subTab==='selected'}" @click="subTab='selected'"><i class="fas fa-check-circle" style="margin-right:4px;"></i>已选源 ({{selectedCountForCurrentTab}})</div>
-        <div class="sub-btn" :class="{active:subTab==='all'}" @click="subTab='all'"><i class="fas fa-list-ul" style="margin-right:4px;"></i>全部源 ({{currentTabList.length}})</div>
-        <div class="sub-action" @click="toggleSelectAll"><i class="fas" :class="isAllSelected?'fa-check-double':'fa-square'"></i>{{ isAllSelected?'取消全选':'全部选中' }}</div>
-      </div>
-      <div class="search-input"><input v-model="searchKw" placeholder="输入源名称快速过滤..." /></div>
-      <div class="site-scroll">
-        <div v-for="s in filteredSites" :key="s.key" class="site-row" :class="{active:s.key===currentSite&&activeTab===sourceType}" @click="pickSite(s,activeTab)">
-          <div class="site-row-main">
-            <span class="badge" :class="activeTab">{{activeTab}}</span>
-            <span class="site-row-name">{{s.name}}</span>
-          </div>
-          <i class="fas site-check" :class="isSiteChecked(s)?'fa-check-circle checked':'fa-circle unchecked'" @click.stop="toggleSiteChecked(s)"></i>
-        </div>
-        <div v-if="filteredSites.length===0" style="text-align:center;padding:30px;font-size:12px;color:var(--text-sub);">{{ subTab==='selected' ? '未选择任何源，请到「全部源」页选中' : '无数据' }}</div>
       </div>
     </div>
   </div>
@@ -742,6 +729,24 @@ createApp({
         out.push(c);
       }
       return out;
+    },
+    // 像方案B：自动钻进第一个「视频」分类直出内容；音乐/图片/直播/漫画/小说等非视频类跳过
+    firstVideoTid() {
+      var VID = ['电影','影片','影院','电视剧','连续剧','剧集','剧','动漫','动画','番','综艺','纪录片','短剧','视频','高清','排行','推荐','美剧','韩剧','日剧','国剧','港片','大片','热剧','新片','4k'];
+      var NO = ['音乐','音频','铃声','播客','广播','有声','小说','图片','图集','写真','漫画','直播','抖奶','自拍','麻豆','制服','福利','资源','下载','软件','工具'];
+      var pool = [];
+      for (const c of this.categories) {
+        var id = String(c.type_id || '');
+        if (id === '__REC__' || id === '__GRP__' || id === '__search__' || id === '__home__') continue;
+        pool.push(c);
+      }
+      for (var i = 0; i < pool.length; i++) {
+        var nm = String(pool[i].type_name || '').toLowerCase();
+        var isNo = NO.some(function(k){ return nm.indexOf(k) >= 0; });
+        if (isNo) continue;
+        if (VID.some(function(k){ return nm.indexOf(k) >= 0; })) return pool[i].type_id;
+      }
+      return pool.length ? pool[0].type_id : '';
     },
     selectedFilterCount() {
       if (!this.selectedFilters) return 0;
@@ -1192,12 +1197,33 @@ navBack() { this.goBackCore(); },
         this.__toastT = setTimeout(() => { el.style.opacity = '0'; }, 1800);
       } catch (e) {}
     },
-    async onSourcePillClick() {
-      // WebHTV fm 桥单源模式：跳壳子原生源选择界面（theme.json 权限 app.openSite）
+    async onSourcePillClick() { await this.openNativeSitePicker(); },
+    async openNativeSitePicker() {
+      // 直跳壳子原生源选择界面（theme.json 权限 app.openSite）。皮肤内「数据源选择」弹窗已删除。
+      try { if (window.fm && typeof fm.openSite === 'function') { await fm.openSite(); return; } } catch(e) {}
+      try { if (typeof fm !== 'undefined' && typeof fm.openSite === 'function') { await fm.openSite(); return; } } catch(e) {}
+      // 桥可能刚注入：短暂轮询重试
       try {
-        if (window.fm && typeof fm.openSite === 'function') { await fm.openSite(); return; }
+        for (var _i = 0; _i < 3; _i++) {
+          await new Promise(function(r){ setTimeout(r, 300); });
+          if (window.fm && typeof fm.openSite === 'function') { await fm.openSite(); return; }
+        }
       } catch(e) {}
-      this.showModal = true; // 无桥兜底：皮肤内选择
+      this.__toast('无法打开原生源选择');
+    },
+    // 下方浮动分组键：切分组即钻进该分组第一个分类
+    async switchGroup(g) {
+      this.catGroupSel = g;
+      var pool = this.panelSources.slice();
+      if (!pool.length) { this.__toast('该分组暂无内容'); return; }
+      var tgt = String(pool[0].type_id || '');
+      if (!tgt) { this.__toast('该分组暂无内容'); return; }
+      if (String(this.t) === tgt) {
+        try { if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e) {}
+        return;
+      }
+      this.t = tgt;
+      await this.fetchCategoryData(tgt, 1, false);
     },
     async pickSite(s, type) {
       this.sourceType = type;
@@ -1255,7 +1281,8 @@ navBack() { this.goBackCore(); },
         //      首分类 items=0）。回退后必须自增 _rtSeq 掐掉 fetchCategoryData 挂起的空结果重试定时器。
         else if (rawClasses.length > 0) {
           this.categories = rawClasses;
-          const firstTid = rawClasses[0].type_id;
+          // 像方案B：自动钻进第一个「视频」分类直出内容（非视频类跳过）
+          const firstTid = this.firstVideoTid || rawClasses[0].type_id;
           this.t = firstTid;
           this.loading = false;
           await this.fetchCategoryData(firstTid, 1, false);
