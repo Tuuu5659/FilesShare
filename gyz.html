@@ -1284,6 +1284,32 @@ navBack() { this.goBackCore(); },
           this.t = firstTid;
           this.loading = false;
           await this.fetchCategoryData(firstTid, 1, false);
+          // ★ 三层聚合源二次钻取：home=子源 → category(Si)=子源分类文件夹卡 → category(Si#分类)=影视条目。
+          //   首层钻取若拿到的是文件夹卡（vod_tag=folder / 📁 分类），还得再下一层才是真正内容。
+          //   二层钻取失败则就地回退到一层文件夹卡，不退回最外层子源卡。
+          if (this.list && this.list.length) {
+            const lvl1 = this.list.slice();
+            let autoF = null;
+            for (let ai = 0; ai < lvl1.length; ai++) {
+              const av = lvl1[ai];
+              const isF = String(av.vod_tag) === 'folder' || String(av.vod_remarks || '').indexOf('\ud83d\udcc1') === 0;
+              if (!isF) continue;
+              if (!autoF) autoF = av;
+              if (/电影|电视剧|连续剧|剧集|动漫|动画|综艺|纪录片|短剧|视频|影片|高清|4k/i.test(String(av.vod_name || ''))) { autoF = av; break; }
+            }
+            if (autoF && String(autoF.vod_id)) {
+              this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
+              this.t = String(autoF.vod_id);
+              await this.loadFolder(String(autoF.vod_id));
+            }
+            if (!this.list || !this.list.length) {
+              // 掐掉挂起重试，避免定时器回来把卡片覆盖
+              this._rtSeq = (this._rtSeq || 0) + 1;
+              this.list = lvl1;
+              this.hasMore = false;
+              this.loading = false;
+            }
+          }
           if (!this.list || this.list.length === 0) {
             // 掐掉挂起的自动重试（否则定时器回来会把这里铺好的卡片覆盖掉）
             this._rtSeq = (this._rtSeq || 0) + 1;
