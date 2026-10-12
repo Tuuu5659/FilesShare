@@ -388,6 +388,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
     </div>
 
 <!-- 卡片列表 -->
+    <div id="diag2box" style="position:fixed;left:8px;right:8px;top:58px;z-index:99999;font-size:11px;line-height:1.6;color:#FFD36B;background:rgba(0,0,0,.85);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,160,0,.5);white-space:pre-wrap;word-break:break-all;max-height:46vh;overflow:auto;">诊断2待命…打开源后显示 loadHome / fetchCat 轨迹</div>
     <div class="grid" :class="['layout-'+theme.layout, slideDir]" :key="gridKey">
       <div v-for="v in gridItems" :key="v.vod_id" class="card" @click="clickCard(v)">
         <img :src="v.vod_pic||__picFix(v.vod_name||'','')" loading="lazy" @error="onImgErr($event, v.vod_name)">
@@ -633,6 +634,18 @@ const PRESET_THEMES = {
 
 
 // fm 就绪等待
+window.__diag2 = (function(){
+  var lines = [];
+  return function(msg){
+    try {
+      lines.push((lines.length+1) + '. ' + msg);
+      if (lines.length > 30) lines.shift();
+      var el = document.getElementById('diag2box');
+      if (el) el.textContent = lines.join('\n');
+    } catch(e){}
+  };
+})();
+
 async function fmReady() {
   const t0 = Date.now();
   while (!window.fm || !fm.vodHome) {
@@ -895,6 +908,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     },
 
     async fetchCategoryData(tid, pageNum = 1, append = false, _retried, _tries = 0) {
+      try { window.__diag2 && window.__diag2('fetchCat IN: tid='+String(tid).slice(0,24)+' pg='+pageNum+' append='+append+' tries='+_tries+' cats='+this.categories.length); } catch(e){}
       if (String(tid) === '__home__') {
         // 页面自造的假推荐tab：壳子会话不认识这个引用，绝不能下发桥调用（否则 Unknown type reference→对外 INVALID_ARGUMENT）
         if (!append) { this.list = this.homeCache || []; this.hasMore = false; this.pg = 1; this.loading = false; }
@@ -906,6 +920,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       try {
         const res = await callNative('getCategoryContentAsync', this.sourceType, this.currentSite, String(tid), String(pageNum), this.getCleanFilterJson());
         const newItems = this.normalizeList(res);
+        try { window.__diag2 && window.__diag2('fetchCat RET: tid='+String(tid).slice(0,24)+' items='+newItems.length+' resKeys=['+Object.keys(res||{}).slice(0,8).join(',')+']'); } catch(e){}
         // 二级分类走壳子筛选器：分类响应契约里没有 filters 字段（放进去直接被壳子丢弃），
         // 聚合源要到本次分类请求里才探明该站 class 并发进缓存 → 这里补拉一次 HOME 把筛选入口合并出来
         if (!append && this.t && String(this.t) !== '__home__' && this._fwTab !== String(this.t)) {
@@ -946,6 +961,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
         if (!append && newItems.length === 0 && this._autoRetry(String(tid), pageNum, _tries, '空结果')) return;
       } catch(e) {
         const msg = String((e && e.message) || e);
+        try { window.__diag2 && window.__diag2('fetchCat ERR: tid='+String(tid).slice(0,24)+' msg='+msg.slice(0,120)); } catch(ed){}
         // v2 会话 invalidate 后页面缓存的 typeId 引用整批失效（壳子报 Unknown type reference→对外 INVALID_ARGUMENT）
         // 自愈：重拉 vod.home 换新引用，按 class 顺序映射旧tid→新ref，重试一次
         if (!_retried && !append && /INVALID_ARGUMENT|Unknown .* reference|typeId/i.test(msg)) {
@@ -1330,6 +1346,9 @@ navBack() { this.goBackCore(); },
         this.allFilters = _af;
         const homeRecommend = this.normalizeList(res);
         if (res && res.source && res.source.name) this.currentSiteName = res.source.name;
+
+        // ==== 诊断2：loadHome 执行轨迹 ====
+        try { window.__diag2 && window.__diag2('loadHome: _boot='+(_boot|0)+' rawClasses='+rawClasses.length+' homeRec='+homeRecommend.length+' resKeys=['+Object.keys(res||{}).slice(0,10).join(',')+']'); } catch(e){}
 
         // ★ 冷启动根治：WebHTV 刚打开时宿主源后端未热身，HOME 可能既无推荐又无分类。
         //   这时不要落「该源未配置分类」空态，而是持续重试直到后端就绪（最多 ~20 次 / 58s）。
