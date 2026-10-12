@@ -398,7 +398,9 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <div class="grid-footer" v-if="loadingMore"><i class="fas fa-circle-notch fa-spin"></i> 正在加载更多...</div>
       <div class="grid-footer" v-else-if="!hasMore && list.length>0 && t!=='__home__'">- 已经到底啦 -</div>
       
-      <div class="state-box" v-if="loading"><i class="fas fa-circle-notch fa-spin"></i><br/>{{t==='__search__'?'正在搜索...':'正在探索片库...'}}</div>
+      <div class="state-box" v-if="loading"><i class="fas fa-circle-notch fa-spin"></i><br/>{{t==='__search__'?'正在搜索...':'正在探索片库...'}}
+        <div id="diagbox" style="margin-top:18px;font-size:11px;line-height:1.7;color:#FFD36B;text-align:left;max-width:92%;word-break:break-all;background:rgba(0,0,0,.5);padding:10px 12px;border-radius:10px;border:1px solid rgba(255,160,0,.4);white-space:pre-wrap;">诊断待命…打开源后这里会显示 fm 桥返回</div>
+      </div>
       <div class="state-box" v-else-if="t==='__search__'&&!searchDone"><i class="fas fa-search"></i><br/>在顶部输入关键词检索「{{currentSiteName||'当前源'}}」</div>
       <div class="state-box" v-else-if="list.length===0 && !loading">
         <div>{{errorMsg || '暂无内容，请检查网络或切换筛选'}}</div>
@@ -574,7 +576,27 @@ window.__onNativeError = (id, err) => {
     
     if (func === 'getHomeContentAsync') {
       // getHomeContentAsync(sourceType, currentSite) -> fm.vodHome({})
-      result = await fm.vodHome({});
+      // ==== 诊断版：捕获 fm 桥真机返回，显示在屏幕上 ====
+      var __d = { step: 'start', fmExists: (typeof window.fm !== 'undefined'), vodHomeType: (window.fm ? typeof fm.vodHome : 'no-fm') };
+      try {
+        var __t0 = Date.now();
+        result = await fm.vodHome({});
+        __d.step = 'returned';
+        __d.ms = Date.now() - __t0;
+        __d.rawType = (result === null ? 'null' : (result === undefined ? 'undefined' : typeof result));
+        try {
+          var __r = (typeof result === 'string') ? JSON.parse(result) : result;
+          __d.parsedType = typeof __r;
+          __d.keys = __r && typeof __r === 'object' ? Object.keys(__r).slice(0, 12).join(',') : '(not-obj)';
+          __d.classLen = __r && (__r.class || __r.classes) ? (__r.class || __r.classes).length : 'no-class';
+          __d.listLen = __r && (__r.list) ? __r.list.length : 'no-list';
+          __d.sample = JSON.stringify(__r).slice(0, 400);
+        } catch (ep) { __d.parseErr = String(ep); __d.sample = String(result).slice(0, 400); }
+      } catch (eh) {
+        __d.step = 'threw';
+        __d.err = String((eh && eh.message) || eh);
+      }
+      try { window.__DIAG = __d; if (window.__showDiag) window.__showDiag(__d); } catch(e){}
     } else if (func === 'getCategoryContentAsync') {
       // getCategoryContentAsync(sourceType, currentSite, tid, pg, filters) -> fm.vodCategory(tid, pg, {filter:true, extend:filters})
       const tid = params[2];
@@ -633,6 +655,23 @@ const PRESET_THEMES = {
 
 
 // fm 就绪等待
+window.__showDiag = function(d){
+  try {
+    var el = document.getElementById('diagbox');
+    if (!el) return;
+    var lines = [];
+    lines.push('step=' + d.step + (d.ms!==undefined?('  '+d.ms+'ms'):''));
+    lines.push('fm存在=' + d.fmExists + '  vodHome=' + d.vodHomeType);
+    if (d.err) lines.push('❌抛错: ' + d.err);
+    if (d.rawType!==undefined) lines.push('返回类型=' + d.rawType);
+    if (d.parsedType!==undefined) lines.push('解析后=' + d.parsedType + '  keys=[' + d.keys + ']');
+    if (d.classLen!==undefined) lines.push('class数=' + d.classLen + '  list数=' + d.listLen);
+    if (d.parseErr) lines.push('解析错误: ' + d.parseErr);
+    if (d.sample) lines.push('样本: ' + d.sample);
+    el.textContent = lines.join('\n');
+  } catch(e){}
+};
+
 async function fmReady() {
   const t0 = Date.now();
   while (!window.fm || !fm.vodHome) {
