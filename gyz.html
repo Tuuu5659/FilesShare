@@ -641,8 +641,6 @@ async function fmReady() {
   }
 }
 
-createApp({
-  data() {
 // 排版布局自行持久化：壳子只把主题键回灌 {{__THEME_KEY__}}，layout 没有回灌通道，
 // 且 applyTheme 里的 saveUserPreference 只被壳子当偏好存档、不回传页面 → layoutMode 若硬编码，
 // 每次重开首页/重进抽屉都会退回默认「2列海报」。故与主题键分开落 localStorage。
@@ -654,12 +652,16 @@ const LAYOUT_MODES = ['poster', 'compact', 'feed', 'list_img', 'list_text'];
 const EMPTY_RETRY_MAX = 8;
 const EMPTY_RETRY_DELAY = 1500;
 const EMPTY_RETRY_CAP = 3000;
-
 function loadLayout() {
   try { const s = localStorage.getItem('gyz_layout'); return LAYOUT_MODES.indexOf(s) >= 0 ? s : 'compact'; }
   catch (e) { return 'compact'; }
 }
 function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } catch (e) {} }
+
+
+createApp({
+  data() {
+
     const ik = '{{__THEME_KEY__}}';
     const il = '{{__LAYOUT_MODE__}}';
     return {
