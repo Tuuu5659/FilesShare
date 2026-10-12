@@ -37,6 +37,7 @@ var Vue=function(e){"use strict";function t(e,t){const n=Object.create(null),o=e
 .fa-xmark:before{content:"\f00d";}
 </style>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap');
 /* 状态栏安全区 */
 /* 沉浸式安全区：默认 0，壳子 chromeMode=edge/immersive 时由 JS 激活 */
 :root { --safe-top: 0px; }
@@ -289,6 +290,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .src-pill-strip{display:flex;align-items:center;gap:7px;min-width:0;flex:0 1 auto;max-width:58%;margin:0 auto;justify-content:center;cursor:pointer;background:var(--pill-bg);border:1px solid var(--line);border-radius:13px;padding:8px 12px;box-shadow:0 4px 14px rgba(0,0,0,.35);}
 .src-pill-strip .tt-name{font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.2px;}
 .src-pill-strip .tb-chev{font-size:10px;color:var(--text-sub);flex:0 0 auto;}
+/* ★ 2026-10-13：顶栏源胶囊（Host + 源名）收小 + MD3 Rounded 观感——
+   字号缩小 / 圆体 / 文字压暗 / 底透明，不再抢头条。
+   中文无免费圆体字形：Latin 与数字走 Baloo 2 圆体，中文回退系统字。
+   规则放在 .src-pill-strip 原定义之后，同特异性靠「后写覆盖」生效。 */
+.src-pill-strip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);border-radius:20px;padding:6px 12px;box-shadow:0 2px 10px rgba(0,0,0,.20);font-family:"Baloo 2","Google Sans Rounded","PingFang SC","Noto Sans SC",sans-serif;}
+.src-pill-strip .tt-name{font-size:13px;font-weight:700;color:rgba(255,255,255,.70);letter-spacing:.3px;}
+.src-pill-strip .tb-chev{font-size:9px;color:rgba(255,255,255,.40);}
+.src-pill-strip .badge{font-size:8px;padding:1px 6px;border-radius:9px;font-weight:800;background:rgba(255,255,255,.09);color:rgba(255,255,255,.55);text-transform:capitalize;}
 /* ===== 下方浮动分组切换键 ===== */
 .grp-fab{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom, 0px) + 76px);z-index:80;display:flex;gap:8px;overflow-x:auto;padding:0 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .grp-fab::-webkit-scrollbar{display:none;}
@@ -888,7 +897,14 @@ createApp({
         const wait = Math.min(EMPTY_RETRY_DELAY * (tries + 1), EMPTY_RETRY_CAP);
         console.log('[autoRetry] ' + why + '，' + wait + 'ms 后重试（第 ' + (tries + 1) + '/' + EMPTY_RETRY_MAX + ' 次）');
         setTimeout(() => {
-          if (me.destroyed || (me._rtSeq || 0) !== seq) return;
+          if (me.destroyed) return;
+          if ((me._rtSeq || 0) !== seq) {
+            // 2026-10-13：令牌被作废 = 不会再有任何人复位 loading。旧版在这里直接 return，
+            // loading 永久为 true → loadNextPage 守卫短路 → 翻页彻底失效（条目数卡死）。
+            // 仅当当前页确实是空的、且没有追加在飞时才复位，避免掐掉新请求正在显示的转圈。
+            if (!me.loadingMore && (!me.list || me.list.length === 0)) me.loading = false;
+            return;
+          }
           me.fetchCategoryData(String(tid), pageNum, false, false, tries + 1);
         }, wait);
         return true;
@@ -925,6 +941,9 @@ createApp({
           this._fwTab = String(this.t);
           this.refreshFilters();
         }
+        // 2026-10-13：请求在飞期间用户切了源 → 本页 tid 已不等于 this.t，结果不能再灌回去，
+        // 否则上一源的条目会拼进新源列表、pagecount/pg 一并被污染（条目数卡住或串台）。
+        if (String(tid) !== String(this.t)) return;
         if (append) {
           this.list = this.list.concat(newItems);
         } else {
@@ -1079,8 +1098,8 @@ createApp({
     async loadNextPage() {
       if (this.loading || this.loadingMore || !this.hasMore || this.t === '__search__') return;
       this.loadingMore = true;
-      await this.fetchCategoryData(this.t, this.pg + 1, true);
-      this.loadingMore = false;
+      try { await this.fetchCategoryData(this.t, this.pg + 1, true); }
+      finally { this.loadingMore = false; }   // 2026-10-13：loadingMore 漏复位会永久掐死翻页
     },
     selectCatFromModal(tid) { this.showCatModal = false; this.onTabClick({ type_id: tid }); },
     panelLabel(nm) { nm = String(nm || ''); if (nm.includes('/')) nm = nm.split('/').slice(1).join('/'); return nm.replace(/^(a-|n-)/, ''); },
@@ -1129,7 +1148,9 @@ createApp({
       const cur = this.categories.findIndex(c => String(c.type_id) === String(this.curTabId));
       const nxt = this.categories.findIndex(c => String(c.type_id) === String(tid));
       if (nxt >= 0 && cur >= 0 && nxt < cur) this.slideDir = 'from-left'; else this.slideDir = 'from-right';
-      this.changeTab(tid);
+      // 2026-10-13：手势切源与点击切源必须同行为（都要钻到四级）。
+      // 旧版这里直调 changeTab，停在三级文件夹卡 → 滑一下源就退回分类目录。
+      this.onTabClick({ type_id: tid });
     },
     goBackCore() {
       if (this.showSearchBar) { this.showSearchBar = false; return; }
@@ -1250,7 +1271,10 @@ navBack() { this.goBackCore(); },
       await this.loadFolder(String(autoF.vod_id));
       if (!this.list || !this.list.length) {
         // 二层失败：掐掉挂起的空结果重试，并弹回一层文件夹卡
+        // 2026-10-13：必须顺手复位 loading——loadFolder 走 _autoRetry 接管后会提前 return 把
+        // loading 留在 true，掐掉重试却不复位就永久卡死，loadNextPage 守卫短路、翻页全灭。
         this._rtSeq = (this._rtSeq || 0) + 1;
+        this.loading = false;
         const back = this.folderStack.pop() || {};
         this.t = back.t || this.t; this.list = back.list || []; this.pg = back.pg || 1; this.hasMore = !!back.hasMore;
       }
