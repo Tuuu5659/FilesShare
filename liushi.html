@@ -130,11 +130,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .top-icon{width:40px;height:40px;border-radius:50%;background:transparent;border:none;color:var(--text);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex-shrink:0;}
 
 /* 分类栏 */
-.cat-bar{display:flex;align-items:center;overflow-x:auto;gap:22px;padding:4px 18px 0 18px;flex-shrink:0;scroll-behavior:smooth;}
+.cat-row{display:flex;align-items:center;gap:10px;padding:2px 14px 0 14px;flex-shrink:0;}
+.cat-bar{display:flex;align-items:center;overflow-x:auto;gap:20px;padding:4px 2px 0 2px;flex:1 1 auto;min-width:0;scroll-behavior:smooth;}
 .cat-bar::-webkit-scrollbar{display:none;}
 .cat-item{position:relative;padding:6px 0 12px 0;font-size:15px;font-weight:500;color:var(--text-sub);white-space:nowrap;cursor:pointer;transition:all 0.2s;flex-shrink:0;}
 .cat-item.active{color:var(--text);font-weight:700;font-size:16px;}
 .cat-item.active::after{content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:20px;height:3px;border-radius:2px;background:var(--accent);}
+.cat-fire{color:var(--accent);margin-right:6px;font-size:13px;}
+.src-pick{flex:0 0 auto;width:38px;height:38px;border-radius:14px;background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.38),0 1px 2px rgba(0,0,0,.25);-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .18s cubic-bezier(.2,1,.3,1),box-shadow .18s;}
+.src-pick:active{transform:scale(.9);box-shadow:0 1px 4px rgba(0,0,0,.3);}
 
 /* 滚动区 */
 .scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-inset, 0px) + 12px);}
@@ -296,6 +300,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <div class="top-icon" @click="showThemeDrawer=true" title="主题"><i class="fas fa-palette"></i></div>
     </div>
   </div>
+  <!-- 源切换横条：最左 ⊞ 固定（开「全部源」面板）+ 🔥推荐/各子源 tab 横向滑动 -->
+  <div class="cat-row" v-if="categories.length && t!=='__search__'">
+    <div class="src-pick" @click="showCatModal=true" title="全部源"><i class="fas fa-th-large"></i></div>
+    <div class="cat-bar">
+      <div v-for="c in categories" :key="'tb'+String(c.type_id)" class="cat-item" :class="{active: tabActive(c)}" @click="onTabClick(c)"><i v-if="String(c.type_id)==='__home__'||String(c.type_id)==='__REC__'" class="fas fa-fire cat-fire"></i>{{panelLabel(c.type_name)}}</div>
+    </div>
+  </div>
   <!-- MD3 悬浮底栏：返回 / 推荐 / 搜索 / 主题 -->
   <div class="bn-group" :class="{hide: navHidden}">
   <div class="bottom-nav">
@@ -305,7 +316,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
     <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
   </div>
-  <div class="filter-fab" @click="showCatModal=true" title="全部源/分类"><i class="fas fa-th-large"></i></div>
   <div class="filter-fab" v-if="hasFilters" :class="{on: selectedFilterCount>0}" @click="showFilter=true"><i class="fas fa-filter"></i></div>
   </div>
 
@@ -818,6 +828,10 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     window.addEventListener('popstate', () => { this.goBackCore(); });
     window.handleAndroidBack = () => { this.goBackCore(); };
   },
+  watch: {
+    t() { this.scrollCatBar(); },
+    categories() { this.scrollCatBar(); }
+  },
   methods: {
     /* 清洗空过滤参数，绝不传空字符串造成数据库空查 */
     getCleanFilterJson() {
@@ -1217,6 +1231,44 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     heroAdvance(){ if (this.topBanners && this.topBanners.length > 1) this.heroIdx = (this.heroIdx + 1) % this.topBanners.length; },
     heroRestart(){ if (this._heroTimer) clearInterval(this._heroTimer); this._heroTimer = setInterval(() => this.heroAdvance(), 5000); },
 navBack() { this.goBackCore(); },
+    tabActive(c) {
+      // v2：t 恒为子源签名引用（openFolderCard 回流也保持 t=子源引用），简单相等即可
+      return String(this.t || '') === String(c.type_id || '');
+    },
+    async onTabClick(c) {
+      const tid = String((c && c.type_id) || '');
+      if (!tid) return;
+      if (tid === String(this.t)) {
+        try { if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+        return;
+      }
+      await this.changeTab(tid);
+      // 与 loadHome 二次钻取一致：落点若是📁分类文件夹卡，走 v2 __sub__ 签名回流再钻一层直出内容
+      if (tid !== '__home__' && tid !== '__REC__') await this.drillIfFolderCards();
+    },
+    async drillIfFolderCards() {
+      if (!this.list || !this.list.length) return;
+      let autoF = null;
+      for (let ai = 0; ai < this.list.length; ai++) {
+        const av = this.list[ai];
+        const isF = av.vod_tag === 'folder' || String(av.vod_remarks || '').indexOf('📁') === 0;
+        if (!isF) continue;
+        if (!autoF) autoF = av;
+        if (/电影|电视剧|连续剧|剧集|动漫|动画|综艺|纪录片|短剧|视频|影片|高清|4k/i.test(String(av.vod_name || ''))) { autoF = av; break; }
+      }
+      if (!autoF) return;
+      const lvl1 = this.list.slice();
+      await this.openFolderCard(autoF);   // v2：重拉 HOME 取同批 __sub__ 签名回流（内部已压 folderStack）
+      if (!this.list || !this.list.length) {
+        // 回流失败：掐掉挂起的空结果重试，就地恢复一层文件夹卡
+        this._rtSeq = (this._rtSeq || 0) + 1;
+        this.list = lvl1;
+        this.hasMore = false;
+      }
+    },
+    scrollCatBar() {
+      this.$nextTick(() => { const el = document.querySelector('.cat-item.active'); if (el) { try { el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (e) {} } });
+    },
     navHome() {
       const firstTid = this.categories.length ? this.categories[0].type_id : '';
       if (!firstTid) return;
