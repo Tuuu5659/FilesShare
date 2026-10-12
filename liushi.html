@@ -716,6 +716,22 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       return this.allFilters[String(this.t)] || this.allFilters[this.t] || [];
     },
     hasFilters() { return this.currentCatFilters && this.currentCatFilters.length > 0; },
+    firstVideoTid() {
+      // 首个「视频」分类/子源：黑名单先排非视频类（音乐/图片/漫画/直播/小说等），再按白名单取第一个；
+      // 全不命中则回退首个非内部分类（影搜聚合的子源名多不含视频词，靠兜底保证非空）。
+      const NO = /音乐|音频|mp3|歌|听书|播客|图片|图集|写真|自拍|漫画|漫剧|直播|live|小说|有声|广播|电台|有声书|播单|有声读物|短视频|bgm|曲库/i;
+      const VID = /电影|影片|影院|电视剧|连续剧|剧集|剧|动漫|动画|番|综艺|纪录片|短剧|视频|高清|排行|推荐|美剧|韩剧|日剧|国剧|港片|大片|热剧|新片|4k/i;
+      let first = '';
+      for (const c of this.categories) {
+        const id = String(c.type_id || '');
+        if (id === '__REC__' || id === '__GRP__' || id === '__search__' || id === '__home__') continue;
+        if (!first) first = id;
+        const nm = String(c.type_name || '');
+        if (NO.test(nm)) continue;
+        if (VID.test(nm)) return id;
+      }
+      return first;
+    },
     catGroups() {
       const set = [];
       for (const c of this.categories) {
@@ -1361,9 +1377,34 @@ navBack() { this.goBackCore(); },
         //      首分类 items=0）。回退后必须自增 _rtSeq 掐掉 fetchCategoryData 挂起的空结果重试定时器。
         else if (rawClasses.length > 0) {
           this.categories = rawClasses;
-          const firstTid = rawClasses[0].type_id;
+          const firstTid = this.firstVideoTid || rawClasses[0].type_id;
           this.t = firstTid;
           await this.fetchCategoryData(firstTid, 1, false);
+          // ★ 三层聚合源二次钻取（v2 适配）：home=子源 → category(Si)=子源分类文件夹卡(📁 分类) →
+          //   __sub__ 签名回流=真正条目。首层若拿到文件夹卡，复用 openFolderCard 再钻一层——
+          //   它内部重拉 HOME 取「同批签发」的 __sub__ 引用做回流，与手动点卡完全同路径（v2 唯一合法通道，
+          //   folder 卡未签名 vod_id 直接回传会被壳子拒 Unknown type reference）。
+          if (this.list && this.list.length) {
+            const lvl1 = this.list.slice();
+            let autoF = null;
+            for (let ai = 0; ai < lvl1.length; ai++) {
+              const av = lvl1[ai];
+              const isF = av.vod_tag === 'folder' || String(av.vod_remarks || '').indexOf('📁') === 0;
+              if (!isF) continue;
+              if (!autoF) autoF = av;
+              if (/电影|电视剧|连续剧|剧集|动漫|动画|综艺|纪录片|短剧|视频|影片|高清|4k/i.test(String(av.vod_name || ''))) { autoF = av; break; }
+            }
+            if (autoF) {
+              await this.openFolderCard(autoF);
+              autoF = null;
+            }
+            if (!this.list || !this.list.length) {
+              // 二层失败（__sub__ 没匹配上 / 重拉 HOME 失败）：掐掉挂起的空结果重试，回退一层文件夹卡
+              this._rtSeq = (this._rtSeq || 0) + 1;
+              this.list = lvl1;
+              this.hasMore = false;
+            }
+          }
           if (!this.list || this.list.length === 0) {
             // 掐掉挂起的自动重试（否则定时器回来会把这里铺好的卡片覆盖掉）
             this._rtSeq = (this._rtSeq || 0) + 1;
