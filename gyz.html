@@ -135,6 +135,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .cat-item{position:relative;padding:6px 0 12px 0;font-size:15px;font-weight:500;color:var(--text-sub);white-space:nowrap;cursor:pointer;transition:all 0.2s;flex-shrink:0;}
 .cat-item.active{color:var(--text);font-weight:700;font-size:16px;}
 .cat-item.active::after{content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:20px;height:3px;border-radius:2px;background:var(--accent);}
+.cat-fire{color:var(--accent);margin-right:6px;font-size:13px;}
 
 /* 滚动区 */
 .scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-inset, 0px) + 12px);}
@@ -309,6 +310,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
     <div class="tb-actions">
       <div class="top-icon" @click="showThemeDrawer=true" title="主题"><i class="fas fa-palette"></i></div>
     </div>
+  </div>
+  <!-- 源切换横条：🔥推荐 + 各子源/分类，横向滑动（对齐参考图：推荐、1234yy、1234影视…） -->
+  <div class="cat-bar" v-if="categories.length && t!=='__search__'">
+    <div v-for="c in categories" :key="'tb'+String(c.type_id)" class="cat-item" :class="{active: tabActive(c)}" @click="onTabClick(c)"><i v-if="String(c.type_id)==='__home__'||String(c.type_id)==='__REC__'" class="fas fa-fire cat-fire"></i>{{panelLabel(c.type_name)}}</div>
   </div>
   <!-- MD3 悬浮底栏：返回 / 推荐 / 搜索 / 主题 -->
   <div class="bn-group" :class="{hide: navHidden}">
@@ -809,6 +814,9 @@ createApp({
     window.addEventListener('popstate', () => { this.goBackCore(); });
     window.handleAndroidBack = () => { this.goBackCore(); };
   },
+  watch: {
+    t() { this.scrollCatBar(); }
+  },
   methods: {
     /* 清洗空过滤参数，绝不传空字符串造成数据库空查 */
     getCleanFilterJson() {
@@ -1042,7 +1050,7 @@ createApp({
       await this.fetchCategoryData(this.t, this.pg + 1, true);
       this.loadingMore = false;
     },
-    selectCatFromModal(tid) { this.showCatModal = false; this.changeTab(tid); },
+    selectCatFromModal(tid) { this.showCatModal = false; this.onTabClick({ type_id: tid }); },
     panelLabel(nm) { nm = String(nm || ''); if (nm.includes('/')) nm = nm.split('/').slice(1).join('/'); return nm.replace(/^(a-|n-)/, ''); },
     async init() {
       try {
@@ -1169,6 +1177,55 @@ createApp({
     heroAdvance(){ if (this.topBanners && this.topBanners.length > 1) this.heroIdx = (this.heroIdx + 1) % this.topBanners.length; },
     heroRestart(){ if (this._heroTimer) clearInterval(this._heroTimer); this._heroTimer = setInterval(() => this.heroAdvance(), 5000); },
 navBack() { this.goBackCore(); },
+    tabActive(c) {
+      // 活动 tab：t 精确等于该分类 id，或 t 是其下钻后的二层 tid（'Si\x1f分类名' → 归属 'Si'）
+      const t = String(this.t || '');
+      const tid = String(c.type_id || '');
+      if (t === tid) return true;
+      const sep = t.indexOf('\x1f');
+      return sep > 0 && t.slice(0, sep) === tid;
+    },
+    catBase() {
+      const t = String(this.t || '');
+      const i = t.indexOf('\x1f');
+      return i > 0 ? t.slice(0, i) : t;
+    },
+    async onTabClick(c) {
+      const tid = String((c && c.type_id) || '');
+      if (!tid) return;
+      if (tid === String(this.t) || tid === this.catBase()) {
+        try { if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+        return;
+      }
+      await this.changeTab(tid);
+      // 与 loadHome 自动钻取保持一致：落点若是子源分类文件夹卡（📁 分类），再钻一层直出内容
+      if (tid !== '__home__' && tid !== '__REC__') await this.drillIfFolderCards();
+    },
+    async drillIfFolderCards() {
+      if (!this.list || !this.list.length) return;
+      let autoF = null;
+      for (let ai = 0; ai < this.list.length; ai++) {
+        const av = this.list[ai];
+        const isF = av.vod_tag === 'folder' || String(av.vod_remarks || '').indexOf('📁') === 0;
+        if (!isF) continue;
+        if (!autoF) autoF = av;
+        if (/电影|电视剧|连续剧|剧集|动漫|动画|综艺|纪录片|短剧|视频|影片|高清|4k/i.test(String(av.vod_name || ''))) { autoF = av; break; }
+      }
+      if (!autoF) return;
+      this.folderStack.push({ t: this.t, list: this.list, pg: this.pg, hasMore: this.hasMore });
+      try { history.pushState({ n: Date.now() }, ''); } catch (e) {}
+      this.t = String(autoF.vod_id);
+      await this.loadFolder(String(autoF.vod_id));
+      if (!this.list || !this.list.length) {
+        // 二层失败：掐掉挂起的空结果重试，并弹回一层文件夹卡
+        this._rtSeq = (this._rtSeq || 0) + 1;
+        const back = this.folderStack.pop() || {};
+        this.t = back.t || this.t; this.list = back.list || []; this.pg = back.pg || 1; this.hasMore = !!back.hasMore;
+      }
+    },
+    scrollCatBar() {
+      this.$nextTick(() => { const el = document.querySelector('.cat-item.active'); if (el) { try { el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (e) {} } });
+    },
     navHome() {
       const firstTid = this.categories.length ? this.categories[0].type_id : '';
       if (!firstTid) return;
