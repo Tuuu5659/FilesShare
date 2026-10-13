@@ -206,11 +206,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .card .tag-top{position:absolute;top:8px;left:8px;right:8px;display:flex;align-items:center;justify-content:flex-start;padding:4px 8px;font-size:10.5px;font-weight:600;color:#fff;background:rgba(0,0,0,0.72);border-radius:20px;backdrop-filter:blur(6px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .card .tag-top .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-right:6px;flex-shrink:0;}
 .card .bottom-bar{position:absolute;left:0;right:0;bottom:0;padding:20px 10px 8px 10px;background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.3) 70%,transparent 100%);}
-.card .bottom-bar .name{font-size:12.5px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.8);}
+.card .bottom-bar .name{font-size:15px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.8);}
+.card .bottom-bar .name .nt{max-width:100%;}
+.card .bottom-bar .name.mq{text-overflow:clip;}
+.card .bottom-bar .name.mq .nt{display:inline-block;padding-right:2.2em;animation:nmarq 9s linear 1.4s infinite;}
+@keyframes nmarq{0%,14%{transform:translateX(0);}86%,100%{transform:translateX(-100%);}}
 
 /* 5 种布局 */
 .grid.layout-poster{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 6px;padding:0 10px 20px 10px;}
-.grid.layout-poster .card{aspect-ratio:2/3;}.grid.layout-poster .card .bottom-bar{padding:14px 6px 6px 6px;}.grid.layout-poster .card .bottom-bar .name{font-size:11px;}
+.grid.layout-poster .card{aspect-ratio:2/3;}.grid.layout-poster .card .bottom-bar{padding:14px 6px 6px 6px;}.grid.layout-poster .card .bottom-bar .name{font-size:14px;}
 .grid.layout-compact{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 12px;}
 .grid.layout-compact .card{aspect-ratio:3/4;}
 .grid.layout-feed{display:block;}
@@ -222,12 +226,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .grid.layout-list_img .card img{width:110px;height:100%;flex-shrink:0;}
 .grid.layout-list_img .card .tag-top{display:none;}
 .grid.layout-list_img .card .bottom-bar{position:static;flex:1;background:none;padding:0 12px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}
-.grid.layout-list_img .card .bottom-bar .name{color:var(--text);font-size:13.5px;text-shadow:none;text-align:left;}
+.grid.layout-list_img .card .bottom-bar .name{color:var(--text);font-size:15px;text-shadow:none;text-align:left;}
 .grid.layout-list_text{display:flex;flex-direction:column;gap:0;}
 .grid.layout-list_text .card{display:flex;height:52px;aspect-ratio:unset;background:transparent;box-shadow:none;border-radius:0;border-bottom:1px solid var(--line);}
 .grid.layout-list_text .card img,.grid.layout-list_text .card .tag-top{display:none;}
 .grid.layout-list_text .card .bottom-bar{position:static;flex:1;background:none;padding:0 4px;display:flex;align-items:center;}
-.grid.layout-list_text .card .bottom-bar .name{color:var(--text);font-size:13.5px;text-shadow:none;text-align:left;}
+.grid.layout-list_text .card .bottom-bar .name{color:var(--text);font-size:15px;text-shadow:none;text-align:left;}
 .grid.layout-list_text .card::before{content:'\f144';font-family:'Font Awesome 6 Free';font-weight:400;color:var(--accent);font-size:14px;margin:0 12px 0 4px;opacity:0.8;}
 
 /* 极简提示 */
@@ -411,7 +415,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <div v-for="v in gridItems" :key="v.vod_id" class="card" @click="clickCard(v)">
         <img :src="v.vod_pic||__picFix(v.vod_name||'','')" loading="lazy" @error="onImgErr($event, v.vod_name)">
         <div class="tag-top" v-if="v.vod_remarks"><span class="dot"></span>{{v.vod_remarks}}</div>
-        <div class="bottom-bar"><div class="name">{{v.vod_name||v.name||'未知片名'}}</div></div>
+        <div class="bottom-bar"><div class="name"><span class="nt">{{v.vod_name||v.name||'未知片名'}}</span></div></div>
       </div>
 
       <div class="grid-footer" v-if="loadingMore"><i class="fas fa-circle-notch fa-spin"></i> 正在加载更多...</div>
@@ -825,6 +829,8 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     this.destroyed = true;
     this._rtSeq = (this._rtSeq || 0) + 1;   // 作废尚未触发的自动重试定时器
     if (this._heroTimer) clearInterval(this._heroTimer);
+    if (this._mqT) clearTimeout(this._mqT);
+    if (this._mqT2) clearTimeout(this._mqT2);
   },
   async mounted() {
     this._heroTimer = setInterval(() => this.heroAdvance(), 5000);   // 轮换内置组件：不再依赖外部 __vue_app__ 代理链
@@ -870,6 +876,14 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
   watch: {
     t() { this.scrollCatBar(); },
     categories() { this.scrollCatBar(); }
+  },
+  /* 2026-10-13：剧名溢出扫描（跑马灯）。updated 后节流两扫：350ms 首扫 + 1500ms 补扫——
+     图片/字体加载完成不再触发 Vue updated，不补扫会漏标。 */
+  updated() {
+    if (this.destroyed) return;
+    const me = this;
+    if (!this._mqT) this._mqT = setTimeout(() => { me._mqT = 0; me._mqScan(); }, 350);
+    if (!this._mqT2) this._mqT2 = setTimeout(() => { me._mqT2 = 0; me._mqScan(); }, 1500);
   },
   methods: {
     /* 清洗空过滤参数，绝不传空字符串造成数据库空查 */
@@ -1157,12 +1171,27 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       if(val === '' || val === undefined || val === null) delete this.selectedFilters[groupKey];
       else this.selectedFilters[groupKey] = val;
       this.selectedFilters = { ...this.selectedFilters };
+      // 2026-10-13：选完自动收起面板——筛选语义是「选了就走」，面板留着只会挡住结果区。
+      // 点已选中的项在方法开头就 return（空操作），面板保持打开让用户改选。
+      this.showFilter = false;
       await this.fetchCategoryData(this.t, 1, false);
     },
     resetFilters() {
       this.selectedFilters = {};
       this.showFilter = false;
       this.fetchCategoryData(this.t, 1, false);
+    },
+    /* 剧名跑马灯：溢出者加 .mq 激活滚动动画，未溢出者移除（字号调大后长名必然溢出）。 */
+    _mqScan() {
+      if (this.destroyed) return;
+      try {
+        const els = document.querySelectorAll('.card .name');
+        for (let i = 0; i < els.length; i++) {
+          const el = els[i];
+          if (el.scrollWidth > el.clientWidth + 1) el.classList.add('mq');
+          else el.classList.remove('mq');
+        }
+      } catch (e) {}
     },
 
     handleTouchStart(e) {
