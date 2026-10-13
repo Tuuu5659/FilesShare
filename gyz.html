@@ -788,29 +788,6 @@ createApp({
       }
       return pool.length ? pool[0].type_id : '';
     },
-    /* 2026-10-13：当前「子分类」的值。自动钻取（loadHome / onTabClick → drillIfFolderCards）
-       是直接把 this.t 换成 subid\x1fcid，从不经过 selectFilter，selectedFilters 一直是空的——
-       于是面板里没有任何一项被点亮，但页面展示的其实就是第一个子分类。
-       聚合器取证（Python聚合.py）：folder 卡 vod_id = subid\x1f{type_id}（L1170），
-       __sub__ 组 value.v = 子分类 type_id（L1005）——同一套字符串，可从 this.t 直接反推。 */
-    subFilterCurrent() {
-      const sel = this.selectedFilters || {};
-      const v = sel['__sub__'];
-      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
-      const t = String(this.t || '');
-      const i = t.indexOf('\x1f');
-      return i >= 0 ? t.slice(i + 1).trim() : '';
-    },
-    /* 筛选项是否选中。selectedFilters 优先；只有「子分类」组的当前值被编码进 this.t 后段，
-       其余组缺省即「全部」。两个值都为空时点亮默认「全部」项（沿用旧行为）。 */
-    isFilterActive(key, val) {
-      const cv = String(val == null ? '' : val).trim();
-      const sel = (this.selectedFilters || {})[key];
-      let cur = (sel !== undefined && sel !== null && String(sel).trim() !== '') ? String(sel).trim() : '';
-      if (cur === '' && key === '__sub__') cur = this.subFilterCurrent();
-      if (cur === '' && cv === '') return true;
-      return cur === cv;
-    },
     selectedFilterCount() {
       const sel = this.selectedFilters || {};
       let c = 0;
@@ -1078,6 +1055,33 @@ createApp({
     switchTab(t) { this.activeTab = t; this.searchKw = ''; },
     
     /* 筛选选择 */
+    /* 2026-10-13：★必须放在 methods: 里，不能放 computed:。
+       computed 属性在实例上是「值」不是「函数」——放错地方时模板调用 isFilterActive(g.key, opt.v)
+       会抛 TypeError: not a function，Vue 渲染失败 → 整屏黑（且只有点开筛选才渲染那行模板，
+       页面能正常加载、一点筛选才黑）。2026-10-13 踩过一次，靠区块归属断言守门。
+       当前「子分类」的值：自动钻取（loadHome / onTabClick → drillIfFolderCards）直接把 this.t
+       换成 subid\x1fcid，从不经过 selectFilter，selectedFilters 一直是空的——于是面板里没有任何
+       一项被点亮，但页面展示的其实就是第一个子分类。
+       聚合器取证（Python聚合.py）：folder 卡 vod_id = subid\x1f{type_id}（L1170），
+       __sub__ 组 value.v = 子分类 type_id（L1005）——同一套字符串，可从 this.t 直接反推。 */
+    subFilterCurrent() {
+      const sel = this.selectedFilters || {};
+      const v = sel['__sub__'];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      const t = String(this.t || '');
+      const i = t.indexOf('\x1f');
+      return i >= 0 ? t.slice(i + 1).trim() : '';
+    },
+    /* 筛选项是否选中。selectedFilters 优先；只有「子分类」组的当前值被编码进 this.t 后段，
+       其余组缺省即「全部」。两个值都为空时点亮默认「全部」项（沿用旧行为）。 */
+    isFilterActive(key, val) {
+      const cv = String(val == null ? '' : val).trim();
+      const sel = (this.selectedFilters || {})[key];
+      let cur = (sel !== undefined && sel !== null && String(sel).trim() !== '') ? String(sel).trim() : '';
+      if (cur === '' && key === '__sub__') cur = this.subFilterCurrent();
+      if (cur === '' && cv === '') return true;
+      return cur === cv;
+    },
     async selectFilter(groupKey, val) {
       if(this.selectedFilters[groupKey]===val) return;
       if(val === '' || val === undefined || val === null) delete this.selectedFilters[groupKey];
