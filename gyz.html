@@ -333,7 +333,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   <div class="bn-group" :class="{hide: navHidden}">
   <div class="bottom-nav">
     <div class="bn-item" @click="navBack"><i class="fas fa-arrow-left"></i><span>返回</span></div>
-    <div class="bn-item" :class="{on: String(t)==='__home__'||String(t)==='__REC__'||(categories.length&&String(t)===String(categories[0].type_id))}" @click="navHome"><i class="fas fa-fire"></i><span>推荐</span></div>
+    <div class="bn-item" :class="{on: String(t)==='__home__'||String(t)==='__REC__'||(categories.length&&catBase()===String(categories[0].type_id))}" @click="navHome"><i class="fas fa-fire"></i><span>推荐</span></div>
     <div class="bn-item" :class="{on: showHistoryPanel}" @click="openHistory"><i class="fas fa-clock-rotate-left"></i><span>历史</span></div>
 
     <div class="bn-item" @click="openSearch"><i class="fas fa-search"></i><span>搜索</span></div>
@@ -773,7 +773,10 @@ createApp({
       //   首个命中变成 1905电影网（名字含"电影"），所以每次打开影搜聚合都高亮 1905电影网。
       //   补上后落点变成 1234影视（4 个分类、每分类 36 条 / 5 页，可翻页）。
       var VID = ['电影','影片','影院','电视剧','连续剧','剧集','剧','动漫','动画','番','综艺','纪录片','短剧','视频','高清','排行','推荐','美剧','韩剧','日剧','国剧','港片','大片','热剧','新片','影视','4k'];
-      var NO = ['音乐','音频','铃声','播客','广播','有声','小说','图片','图集','写真','漫画','直播','抖奶','自拍','麻豆','制服','福利','资源','下载','软件','工具'];
+      // 2026-10-13：两方案 NO 表统一（32 词 = 并集 33 词 - '资源'）。
+      // 真源列表验证（影搜 111 源 + 短剧 55 源）：新增的 12 词全部 0 命中，落点四项组合不变；
+      // 而 '资源' 会命中真视频源「电影天堂资源」→ 误杀，故从两方案都拿掉。
+      var NO = ['音乐','音频','铃声','mp3','歌','bgm','曲库','听书','播客','广播','电台','有声','有声书','有声读物','播单','小说','图片','图集','写真','漫画','漫剧','直播','live','短视频','抖奶','自拍','麻豆','制服','福利','下载','软件','工具'];
       var pool = [];
       for (const c of this.categories) {
         var id = String(c.type_id || '');
@@ -1313,11 +1316,16 @@ navBack() { this.goBackCore(); },
     scrollCatBar() {
       this.$nextTick(() => { const el = document.querySelector('.cat-item.active'); if (el) { try { el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (e) {} } });
     },
-    navHome() {
-      const firstTid = this.categories.length ? this.categories[0].type_id : '';
+    async navHome() {
+      const firstTid = this.categories.length ? String(this.categories[0].type_id) : '';
       if (!firstTid) return;
-      if (String(this.t) === String(firstTid)) { if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-      this.changeTab(firstTid);
+      // 2026-10-13：与 onTabClick 对齐——切到源后若落点是📁分类文件夹卡，再钻一层直出内容。
+      // 旧版只 changeTab 不钻取：底部「推荐」停在三级文件夹卡，顶部 tab 点击(onTabClick)却能钻到
+      // 四级，同一个「回首页」语义两个入口行为不一致。
+      // 故意不设「已在首 tab 就只滚动」的守卫：drill 后 t 变成二级 tid，守卫判定 String(t)!==firstTid
+      // 会放行，drill 后点推荐反而不动作；不设守卫则每次点推荐都稳定回到「首分类直出内容」。
+      await this.changeTab(firstTid);
+      if (firstTid !== '__home__' && firstTid !== '__REC__') await this.drillIfFolderCards();
     },
     openSearch() { this.showSearchBar = true; this.$nextTick(() => { const el = document.querySelector('.ss-box input'); if (el) el.focus(); }); },
     doSearchGo() {
