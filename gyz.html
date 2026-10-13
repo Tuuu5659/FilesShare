@@ -200,7 +200,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .ld-bar .ld-fill2{animation-delay:.32s;opacity:.5;}
 @keyframes ldslide{0%{transform:translateX(-100%);}100%{transform:translateX(320%);}}
 /* 2026-10-13：上拉加载更多提示（有下一页时给出指引，可点击手动翻；避免用户以为只有一页） */
-.grid-more{text-align:center;padding:16px 0 22px 0;font-size:12px;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:6px;animation:ldpulse 1.6s ease-in-out infinite;}
+.grid-more{text-align:center;padding:20px 0 28px 0;font-size:15px;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:8px;animation:ldpulse 1.6s ease-in-out infinite;font-weight:500;}
 .grid-more i{color:var(--accent);}
 .grid.from-right{animation-name:gridInR;}
 .grid.from-left{animation-name:gridInL;}
@@ -731,7 +731,7 @@ createApp({
        进网格，用户以为一个分组只给 16 条）。推荐位保留焦点轮播体验，分类页网格直接拿全量。 */
     topBanners() { return this.list.slice(0, 8); },   /* 2026-10-13：加回推荐位，所有 tab 都显示焦点（搜索/list_text 由模板 v-if 排除） */
     /* 2026-10-13：随焦点条数自适应，焦点为空则网格显示全量 */
-    gridItems() { var n = this.topBanners.length; return n ? this.list.slice(n) : this.list; },
+    gridItems() { return this.list; }  /* 2026-10-13：显示全部，不是 slice(8)。4K指南等分组tab初始只有8个元素时，原逻辑网格为空只显示焦点，用户以为加载失败 */,
     /* 2026-10-13：加载动画文案（按当前场景给准确提示，不再是笼统的「正在探索片库」） */
     ldText() {
       if (this.loadingMore) return '正在加载更多';
@@ -1013,7 +1013,10 @@ createApp({
         // 否则上一源的条目会拼进新源列表、pagecount/pg 一并被污染（条目数卡住或串台）。
         if (String(tid) !== String(this.t)) return;
         if (append) {
-          this.list = this.list.concat(newItems);
+          // 2026-10-13：追加时去重，防止分页加载返回重复数据（1905/4K指南等场景）
+          var existingIds = new Set(this.list.map(v => v.vod_id));
+          var uniqueNewItems = newItems.filter(v => !existingIds.has(v.vod_id));
+          this.list = this.list.concat(uniqueNewItems);
         } else {
           this.list = newItems;
         }
