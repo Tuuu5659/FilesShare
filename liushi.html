@@ -196,6 +196,21 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .sec-head::before{content:'';display:inline-block;width:4px;height:18px;background:var(--accent);border-radius:2px;}
 .grid{padding:0 14px 20px 14px;}
 .grid{animation:gridIn .28s cubic-bezier(.2,.8,.3,1) both;}
+/* 2026-10-13：页面级加载动画（MD3：三点脉动 + 不确定进度条 + 文案）——切源/切分类/切子源时覆盖内容区 */
+.ld-layer{position:fixed;left:0;right:0;top:34%;bottom:0;padding-top:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;z-index:55;pointer-events:none;}
+.ld-dots{display:flex;gap:10px;align-items:center;}
+.ld-dots span{width:16px;height:16px;border-radius:8px;background:var(--accent);opacity:.3;animation:ldpulse 1.15s cubic-bezier(.4,0,.2,1) infinite;}
+.ld-dots span:nth-child(2){animation-delay:.16s;}
+.ld-dots span:nth-child(3){animation-delay:.32s;}
+@keyframes ldpulse{0%,60%,100%{opacity:.3;transform:scale(.7);}30%{opacity:1;transform:scale(1);}}
+.ld-txt{font-size:13px;font-weight:500;color:rgba(255,255,255,.85);letter-spacing:2px;text-shadow:0 1px 6px rgba(0,0,0,.7);}
+.ld-bar{width:190px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden;position:relative;}
+.ld-bar .ld-fill{position:absolute;top:0;left:0;width:34%;height:100%;border-radius:2px;background:var(--accent);animation:ldslide 1.5s cubic-bezier(.4,0,.2,1) infinite;}
+.ld-bar .ld-fill2{animation-delay:.32s;opacity:.5;}
+@keyframes ldslide{0%{transform:translateX(-100%);}100%{transform:translateX(320%);}}
+/* 2026-10-13：上拉加载更多提示（有下一页时给出指引，可点击手动翻；避免用户以为只有一页） */
+.grid-more{text-align:center;padding:16px 0 22px 0;font-size:12px;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:6px;animation:ldpulse 1.6s ease-in-out infinite;}
+.grid-more i{color:var(--accent);}
 .grid.from-right{animation-name:gridInR;}
 .grid.from-left{animation-name:gridInL;}
 @keyframes gridInR{from{opacity:0;transform:translateX(36px);}to{opacity:1;transform:none;}}
@@ -236,7 +251,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
 /* 极简提示 */
 .state-box{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-sub);font-size:13px;line-height:24px;display:flex;flex-direction:column;align-items:center;}
-.state-box .fa-spin,.state-box .fa-search{font-size:26px;margin-bottom:12px;color:var(--accent);}
+.state-box .fa-spin,.state-box .fa-search,.state-box .fa-box-open,.state-box .fa-folder-open,.state-box .fa-exclamation-circle{font-size:26px;margin-bottom:12px;color:var(--accent);}
 .single-retry-pill{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:7px 20px;border-radius:20px;background:var(--accent);color:var(--accent-text);font-size:12.5px;font-weight:700;cursor:pointer;}
 .grid-footer{grid-column:1/-1;text-align:center;padding:18px 0 20px 0;color:var(--text-sub);font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;}
 
@@ -410,6 +425,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       </div>
     </div>
 
+    <!-- 2026-10-13：页面级加载动画（MD3：三点脉动 + 不确定进度条 + 文案）。
+         原先切源/切分类/切子源时 loading 期间无任何反馈（旧提示只在 categories 为空时出现）→ 白屏数秒 -->
+    <div class="ld-layer" v-if="loading && list.length===0">
+      <div class="ld-dots"><span></span><span></span><span></span></div>
+      <div class="ld-txt">{{ldText}}</div>
+      <div class="ld-bar"><i class="ld-fill"></i><i class="ld-fill ld-fill2"></i></div>
+    </div>
 <!-- 卡片列表 -->
     <div class="grid" :class="['layout-'+theme.layout, slideDir]" :key="gridKey">
       <div v-for="v in gridItems" :key="v.vod_id" class="card" @click="clickCard(v)">
@@ -420,11 +442,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
       <div class="grid-footer" v-if="loadingMore"><i class="fas fa-circle-notch fa-spin"></i> 正在加载更多...</div>
       <div class="grid-footer" v-else-if="!hasMore && list.length>0 && t!=='__home__'">- 已经到底啦 -</div>
+      <div class="grid-more" v-else-if="hasMore && list.length>0 && t!=='__search__'" @click="loadNextPage"><i class="fas fa-chevron-down"></i> 上拉加载更多</div>
       
-      <div class="state-box" v-if="loading && categories.length===0"><i class="fas fa-circle-notch fa-spin"></i><br/>{{t==='__search__'?'正在搜索...':'正在探索片库...'}}</div>
-      <div class="state-box" v-else-if="t==='__search__'&&!searchDone"><i class="fas fa-search"></i><br/>在顶部输入关键词检索「{{currentSiteName||'当前源'}}」</div>
+      <div class="state-box" v-if="t==='__search__'&&!searchDone && !loading"><i class="fas fa-search"></i><br/>在顶部输入关键词检索「{{currentSiteName||'当前源'}}」</div>
       <div class="state-box" v-else-if="list.length===0 && !loading">
-        <div>{{errorMsg || '暂无内容，请检查网络或切换筛选'}}</div>
+        <i class="fas {{emptyIcon}}"></i>
+        <div>{{errorMsg || emptyText}}</div>
         <div v-if="!loading && (!list || !list.length)" style="font-size:10px;line-height:1.6;color:rgba(255,255,255,.42);margin-top:10px;word-break:break-all;font-family:monospace;">{{__diag()}}</div>
         <div class="single-retry-pill" @click="refreshCurrent"><i class="fas fa-redo-alt"></i> 点击重试</div>
       </div>
@@ -689,7 +712,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       sourceType:'host', activeTab:'host', subTab:'selected',
       hostSites:[], pySites:[], jsSites:[], cjSites:[], xlSites:[],
       currentSite:'', currentSiteName:'', categories:[], list:[], t:'',
-      heroIdx:0, loading:false, errorMsg:'', showModal:false, searchKw:'',
+      heroIdx:0, loading:true, errorMsg:''   /* 2026-10-13：初始即加载态，避免 mounted→loadHome 间隙闪空 */, showModal:false, searchKw:'',
       excludedSites:{}, allFilters:{}, selectedFilters:{}, showFilter:false,
       searchWord:'', searchKeyword:'', searchDone:false, pg:1, pagecount:999, hasMore:true, loadingMore:false,
       folderStack:[], homeTid:'', homeCache:[], showThemeDrawer:false, showCatModal:false, catGroupSel:'全部', showHistoryPanel:false, historyList:[], showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'', navHidden:false, lastScrollTop:0,
@@ -717,8 +740,32 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       const kw = this.searchKw.toLowerCase();
       return l.filter(s => (s.name&&s.name.toLowerCase().includes(kw)) || (s.key&&s.key.toLowerCase().includes(kw)));
     },
-    topBanners() { return this.list.slice(0, 8); },
-    gridItems() { return this.list.length > 8 ? this.list.slice(8) : this.list; },
+    /* 2026-10-13：焦点区只在「推荐/首页」显示——普通分类 tab 不再挤掉前 8 条（原来一页 24 条只有 16 条
+       进网格，用户以为一个分组只给 16 条）。推荐位保留焦点轮播体验，分类页网格直接拿全量。 */
+    topBanners() { var s = String(this.t || ''); return (!s || s === '__home__' || s === '__REC__') ? this.list.slice(0, 8) : []; },
+    /* 2026-10-13：随焦点条数自适应，焦点为空则网格显示全量 */
+    gridItems() { var n = this.topBanners.length; return n ? this.list.slice(n) : this.list; },
+    /* 2026-10-13：加载动画文案（按当前场景给准确提示，不再是笼统的「正在探索片库」） */
+    ldText() {
+      if (this.loadingMore) return '正在加载更多';
+      if (this.t === '__search__') return '正在搜索「' + (this.searchWord || this.searchKeyword || '') + '」';
+      if (this.categories.length === 0) return '正在探索片库';
+      if (this.t === '__home__' || this.t === '__REC__') return '正在加载推荐内容';
+      return '正在加载「' + (this.currentSiteName || '当前源') + '」';
+    },
+    /* 2026-10-13：空态文案（区分网络错误 / 搜索无结果 / 该源无分类 / 分类内无内容） */
+    emptyText() {
+      if (this.errorMsg) return this.errorMsg;
+      if (this.t === '__search__') return '这里没有找到「' + (this.searchWord || this.searchKeyword || '') + '」';
+      if (this.categories.length === 0) return '这里什么都没有';
+      return '这里什么都没有';
+    },
+    emptyIcon() {
+      if (this.errorMsg) return 'fa-exclamation-circle';
+      if (this.t === '__search__') return 'fa-search';
+      if (this.categories.length === 0) return 'fa-folder-open';
+      return 'fa-box-open';
+    },
     currentTabName() {
       if (this.t === '__search__') return '搜索结果';
       const found = this.categories.find(c => String(c.type_id) === String(this.t));
@@ -1022,7 +1069,16 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
         }
         this.pagecount = res.pagecount || res.pageCount || 999;
         this.pg = pageNum;
-        if (newItems.length === 0 || this.pg >= this.pagecount) this.hasMore = false;
+        // 2026-10-13：自动翻页掐死修复。壳子 v2 契约给 pagecount=1（HTTP 侧实测聚合器根本不返回该字段、
+        //   桥返回默认值 1），原判定 pg>=pagecount 在第 1 页就把 hasMore 掐成 false → 底部显示「已经到底啦」
+        //   但实际还有 4 页（一起影视 5 页实锤，用户滚到底无反应）。改用「本页条数」主判据：
+        //   空页=到底；pagecount 可信(>=2)且已翻到末页且本页不足半页(<15)=到底；其余继续翻，靠后续空页收尾。
+        var gotN = newItems.length;
+        var pcV = this.pagecount;
+        var pcOk = pcV >= 2 && pcV <= 200;
+        if (gotN === 0) this.hasMore = false;
+        else if (pcOk && this.pg >= pcV && gotN < 15) this.hasMore = false;
+        else this.hasMore = true;
         // 冷启动自愈：tab 拉回空列表（后台还在采样）不要立刻落「暂无内容」
         if (!append && newItems.length === 0 && this._autoRetry(String(tid), pageNum, _tries, '空结果')) return;
       } catch(e) {
@@ -1441,6 +1497,11 @@ navBack() { this.goBackCore(); },
       this.showModal = true; // 三次仍失败才兜底：皮肤内选择
     },
     async pickSite(s, type) {
+      // 2026-10-13：先入加载态——原生桥返回并确认空之前不显示「无内容」。
+      // 原来这里清空 list=[] 却忘了 loading=true，pickSite 里 saveLastSelectedSite 等
+      // callNative 返回 Promise 让出微任务时，Vue 正好在 list=[] && !loading 上更新视图，
+      // 主题抢跑闪出「无内容」，而原生此刻其实还在加载。用户侧表现为：主题先报空、原生才有内容。
+      this.loading = true;
       this.sourceType = type;
       this.currentSite = s.key;
       this.currentSiteName = s.name;
