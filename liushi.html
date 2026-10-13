@@ -742,7 +742,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     },
     /* 2026-10-13：焦点区只在「推荐/首页」显示——普通分类 tab 不再挤掉前 8 条（原来一页 24 条只有 16 条
        进网格，用户以为一个分组只给 16 条）。推荐位保留焦点轮播体验，分类页网格直接拿全量。 */
-    topBanners() { var s = String(this.t || ''); return (!s || s === '__home__' || s === '__REC__') ? this.list.slice(0, 8) : []; },
+    topBanners() { return this.list.slice(0, 8); },   /* 2026-10-13：加回推荐位，所有 tab 都显示焦点（搜索/list_text 由模板 v-if 排除） */
     /* 2026-10-13：随焦点条数自适应，焦点为空则网格显示全量 */
     gridItems() { var n = this.topBanners.length; return n ? this.list.slice(n) : this.list; },
     /* 2026-10-13：加载动画文案（按当前场景给准确提示，不再是笼统的「正在探索片库」） */
