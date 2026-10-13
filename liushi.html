@@ -421,6 +421,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <div class="state-box" v-else-if="t==='__search__'&&!searchDone"><i class="fas fa-search"></i><br/>在顶部输入关键词检索「{{currentSiteName||'当前源'}}」</div>
       <div class="state-box" v-else-if="list.length===0 && !loading">
         <div>{{errorMsg || '暂无内容，请检查网络或切换筛选'}}</div>
+        <div v-if="!loading && (!list || !list.length)" style="font-size:10px;line-height:1.6;color:rgba(255,255,255,.42);margin-top:10px;word-break:break-all;font-family:monospace;">{{__diag()}}</div>
         <div class="single-retry-pill" @click="refreshCurrent"><i class="fas fa-redo-alt"></i> 点击重试</div>
       </div>
     </div>
@@ -1045,7 +1046,24 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
         if (this.searchWord && this.searchWord.trim()) this.doSearch();
         return;
       }
+      // 2026-10-13：空态兜底。无当前分类 / 无分类列表 / __home__ 且推荐缓存空 → 必须重拉 HOME。
+      // 直接 fetchCategoryData 对空 tid 或已失效的 v2 签名引用无效，点了永远没反应。
+      if (!this.t || !this.categories.length || (this.t === '__home__' && (!this.homeCache || !this.homeCache.length))) {
+        this._bootSeq = (this._bootSeq || 0) + 1;
+        return this.loadHome();
+      }
       await this.fetchCategoryData(this.t, 1, false);
+    },
+    /* 空态诊断行：把关键状态印在「暂无内容」下方，便于真机截图定位；正常有内容时不渲染。 */
+    __diag() {
+      try {
+        return 't=' + String(this.t || '').slice(0, 16)
+          + ' | cats=' + this.categories.length
+          + ' | list=' + (this.list ? this.list.length : 0)
+          + ' | rec=' + (this.homeCache ? this.homeCache.length : 0)
+          + ' | filters=' + Object.keys(this.allFilters || {}).length
+          + ' | firstVid=' + String(this.firstVideoTid || '').slice(0, 16);
+      } catch (e) { return 'diag_err:' + e; }
     },
 
     /* 点击当前高亮分类平滑滚顶并重试刷新 */
@@ -1410,7 +1428,7 @@ navBack() { this.goBackCore(); },
       // 但首页列表、分类 tab、焦点图能立刻显示，体感从「转圈数秒」变「秒开」。
       const ck = type + '|' + s.key;
       const cached = this._siteHomeCache && this._siteHomeCache[ck];
-      if (cached && (Date.now() - cached.ts) < 600000) {   // 10 分钟内有效
+      if (cached && (Date.now() - cached.ts) < 600000 && cached.list && cached.list.length) {   // 10 分钟内有效；且缓存首页必须非空
         this.categories = cached.categories;
         this.allFilters = cached.allFilters || {};
         this.homeTid = cached.homeTid || '';
