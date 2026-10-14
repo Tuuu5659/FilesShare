@@ -200,7 +200,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .ld-bar .ld-fill2{animation-delay:.32s;opacity:.5;}
 @keyframes ldslide{0%{transform:translateX(-100%);}100%{transform:translateX(320%);}}
 /* 2026-10-13：上拉加载更多提示（有下一页时给出指引，可点击手动翻；避免用户以为只有一页） */
-.grid-more{text-align:center;padding:20px 0 28px 0;font-size:15px;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:8px;animation:ldpulse 1.6s ease-in-out infinite;font-weight:500;}
+.grid-more{text-align:center;padding:20px 0 28px 0;font-size:15px;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500;} /* 2026-10-13：移除 animation:ldpulse，防止图标抖动 */
 .grid-more i{color:var(--accent);}
 .grid.from-right{animation-name:gridInR;}
 .grid.from-left{animation-name:gridInL;}
