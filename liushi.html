@@ -35,6 +35,7 @@ var Vue=function(e){"use strict";function t(e,t){const n=Object.create(null),o=e
 .fa-th-large:before{content:"\f009";}
 .fa-times:before{content:"\f00d";}
 .fa-xmark:before{content:"\f00d";}
+.grid-loading-fixed{position:fixed;right:16px;bottom:80px;z-index:60;pointer-events:none;padding:8px 12px;font-size:12px;color:var(--text-sub);background:rgba(18,18,20,.86);border-radius:10px;}
 </style>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap');
@@ -208,9 +209,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .ld-bar .ld-fill{position:absolute;top:0;left:0;width:34%;height:100%;border-radius:2px;background:var(--accent);animation:ldslide 1.5s cubic-bezier(.4,0,.2,1) infinite;}
 .ld-bar .ld-fill2{animation-delay:.32s;opacity:.5;}
 @keyframes ldslide{0%{transform:translateX(-100%);}100%{transform:translateX(320%);}}
-/* 2026-10-13：上拉加载更多提示（有下一页时给出指引，可点击手动翻；避免用户以为只有一页） */
-.grid-more{text-align:center;padding:20px 0 28px 0;font-size:15px;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500;} /* 2026-10-13：移除 animation:ldpulse，防止图标抖动 */
-.grid-more i{color:var(--accent);}
 .grid.from-right{animation-name:gridInR;}
 .grid.from-left{animation-name:gridInL;}
 @keyframes gridInR{from{opacity:0;transform:translateX(36px);}to{opacity:1;transform:none;}}
@@ -311,6 +309,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .cat-group-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;flex-shrink:0;}
 .cat-group-chip{padding:9px 16px;border-radius:14px;font-size:13.5px;font-weight:600;background:var(--pill-bg);border:1px solid var(--line);color:var(--text);cursor:pointer;}
 .cat-group-chip.active{background:var(--accent);color:var(--accent-text);border-color:transparent;font-weight:700;}
+.grid-loading-fixed{position:fixed;right:16px;bottom:80px;z-index:60;pointer-events:none;padding:8px 12px;font-size:12px;color:var(--text-sub);background:rgba(18,18,20,.86);border-radius:10px;}
 </style>
 </head>
 <body>
@@ -440,9 +439,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
         <div class="bottom-bar"><div class="name"><span class="nt">{{v.vod_name||v.name||'未知片名'}}</span></div></div>
       </div>
 
-      <div class="grid-footer" v-if="loadingMore"><i class="fas fa-circle-notch fa-spin"></i> 正在加载更多...</div>
+      <div class="grid-footer grid-loading-fixed" v-if="loadingMore"><i class="fas fa-circle-notch fa-spin"></i> 正在加载更多...</div>
       <div class="grid-footer" v-else-if="!hasMore && list.length>0 && t!=='__home__'">- 已经到底啦 -</div>
-      <div class="grid-more" v-else-if="hasMore && list.length>0 && t!=='__search__'" @click="loadNextPage"><i class="fas fa-chevron-down"></i> 上拉加载更多</div>
       
       <div class="state-box" v-if="t==='__search__'&&!searchDone && !loading"><i class="fas fa-search"></i><br/>在顶部输入关键词检索「{{currentSiteName||'当前源'}}」</div>
       <div class="state-box" v-else-if="list.length===0 && !loading">
