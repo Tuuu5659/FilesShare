@@ -414,14 +414,14 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
         <div class="hero-blur" :style="{backgroundImage:'url(' + (topBanners[heroIdx].vod_pic||'') + ')'}"></div>
         <Transition name="hero" mode="crossfade">
           <div class="hero-stage" :key="heroIdx">
-            <img class="hero-bg" :src="topBanners[heroIdx].vod_pic||__picFix(topBanners[heroIdx].vod_name||'','')" alt="" @error="onImgErr($event, topBanners[heroIdx].vod_name)">
+            <img class="hero-bg" :src="topBanners[heroIdx].vod_pic||''" alt="" @error="onImgErr($event, topBanners[heroIdx].vod_name, false)">
           </div>
         </Transition>
         <div class="hero-shade"></div>
         <div class="hero-inner">
           <Transition name="hero-t" mode="out-in">
             <div class="hero-pair" :key="heroIdx">
-              <img class="hero-poster" :src="topBanners[heroIdx].vod_pic||__picFix(topBanners[heroIdx].vod_name||'','')" alt="" @error="onImgErr($event, topBanners[heroIdx].vod_name)">
+              <img class="hero-poster" :src="topBanners[heroIdx].vod_pic||''" alt="" @error="onImgErr($event, topBanners[heroIdx].vod_name, false)">
               <div class="hero-info">
                 <div class="hero-topbar"><i class="fas fa-fire"></i>焦点<span class="sep">·</span>{{heroIdx+1}}/{{topBanners.length}}</div>
                 <div class="hero-title">{{topBanners[heroIdx].vod_name||'未知片名'}}</div>
@@ -448,7 +448,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 <!-- 卡片列表 -->
     <div class="grid" :class="['layout-'+theme.layout, slideDir]" :key="gridKey">
       <div v-for="v in gridItems" :key="v.vod_id" class="card" @click="clickCard(v)">
-        <img :src="v.vod_pic||__picFix(v.vod_name||'','')" loading="lazy" @error="onImgErr($event, v.vod_name)">
+        <img :src="v.vod_pic||''" loading="lazy" @error="onImgErr($event, v.vod_name, v.vod_tag==='folder')">
         <div class="tag-top" v-if="v.vod_remarks"><span class="dot"></span>{{v.vod_remarks}}</div>
         <div class="bottom-bar"><div class="name"><span class="nt">{{v.vod_name||v.name||'未知片名'}}</span></div></div>
       </div>
@@ -592,6 +592,13 @@ window.__onNativeError = (id, err) => {
       try { if (new RegExp(e[0]).test(n)) { const arr = e[1]; return __PIC_BASE + arr[__picHash(n + '|' + e[0]) % arr.length]; } } catch (err) {}
     }
     return __PIC_BASE + __PIC_POOL[__picHash(n) % __PIC_POOL.length];
+  }
+  // 2026-10-14 用户定：内容条目不再自动匹配 icons——空图/死图留空（卡片底色），存量 icons URL 剥掉
+  function __picContent(pic) {
+    let p = String(pic || '');
+    if (/lib\/icons\/ic1_[\w.-]+\.png/.test(p) || p.indexOf('177.jpg') >= 0) return '';
+    if (p.indexOf('http://') === 0) return '';
+    return p;
   }
 
   async function callNative(func, ...args) {
@@ -946,7 +953,9 @@ createApp({
       return raw.map(item => ({
         vod_id: item.vod_id || item.vodId || item.id || '',
         vod_name: item.vod_name || item.name || item.title || '未知片名',
-        vod_pic: __picFix(item.vod_name || item.name, item.vod_pic || item.pic || item.img),
+        vod_pic: ((item.vod_tag || (item.kind === 'folder' ? 'folder' : '')) === 'folder')
+                  ? __picFix(item.vod_name || item.name, item.vod_pic || item.pic || item.img)
+                  : __picContent(item.vod_pic || item.pic || item.img),
         vod_remarks: item.vod_remarks || item.vod_remark || item.remarks || item.note || '',
         vod_tag: item.vod_tag || (item.kind === 'folder' ? 'folder' : '')
       }));
@@ -1255,10 +1264,11 @@ createApp({
         else this.errorMsg = '未检测到可用的视频源，请先配置数据源';
       } catch(e) { this.errorMsg = String(e); }
     },
-    onImgErr(e, name) {
+    onImgErr(e, name, isFolder) {
       const el = e && e.target;
       if (!el) return;
       if (el.dataset.mlzErr === '2') return;
+      if (isFolder === false) { el.dataset.mlzErr = '2'; el.onerror = null; el.style.visibility = 'hidden'; return; }   // 内容条目：不补 icons，留空（2026-10-14 用户定）
       if (el.dataset.mlzErr === '1') { el.dataset.mlzErr = '2'; el.onerror = null; el.src = 'https://img.icons8.com/color/96/movie-projector.png'; return; }
       el.dataset.mlzErr = '1';
       el.onerror = () => { el.dataset.mlzErr = '2'; el.onerror = null; el.src = 'https://img.icons8.com/color/96/movie-projector.png'; };
