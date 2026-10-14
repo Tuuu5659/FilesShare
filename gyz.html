@@ -654,7 +654,7 @@ window.__onNativeError = (id, err) => {
       // WebHTV 单源模式：从 fm.vodHome 拿当前源构造单站点列表
       const home0 = await fm.vodHome({});
       const src0 = (home0 && home0.source) || {};
-      result = { host: [{ key: src0.key || '', name: src0.name || '当前源' }], py: [], js: [], cj: [], xl: [], selfKey: '' };
+      result = { host: [{ key: src0.key || '', name: src0.name || '当前源' }], py: [], js: [], cj: [], xl: [], selfKey: '', __homeRaw: home0 };
     } else if (func === 'getLastSelectedSiteAsync') {
       // 没有对应 API，返回 localStorage
       try {
@@ -1343,7 +1343,8 @@ createApp({
           if (!target && last.name) target = pool.find(s => s.name === last.name);
         }
         if (!target) { targetType = 'host'; target = validHostSites.length > 0 ? validHostSites[0] : (this.hostSites.length > 0 ? this.hostSites[0] : null); }
-        if (target) this.pickSite(target, targetType);
+        const seedHome = (target && res.__homeRaw && (!res.__homeRaw.source || !res.__homeRaw.source.key || String(target.key) === String(res.__homeRaw.source.key))) ? res.__homeRaw : null;
+        if (target) this.pickSite(target, targetType, seedHome);
         else this.errorMsg = '未检测到可用的视频源，请先配置数据源';
       } catch(e) { this.errorMsg = String(e); }
     },
@@ -1556,7 +1557,7 @@ navBack() { this.goBackCore(); },
       this.t = tgt;
       await this.fetchCategoryData(tgt, 1, false);
     },
-    async pickSite(s, type) {
+    async pickSite(s, type, seedHome) {
       // 2026-10-13：先入加载态——原生桥返回并确认空之前不显示「无内容」。
       // 原来这里清空 list=[] 却忘了 loading=true，pickSite 里 saveLastSelectedSite 等
       // callNative 返回 Promise 让出微任务时，Vue 正好在 list=[] && !loading 上更新视图，
@@ -1572,14 +1573,14 @@ navBack() { this.goBackCore(); },
       this.errorMsg = ''; this.pg = 1; this.hasMore = true; this.loadingMore = false;
       callNative('saveLastSelectedSite', type, s.key, s.name || '');
       if (type === 'host' || type === 'xl') callNative('setHostHomeSite', s.key);
-      await this.loadHome();
+      await this.loadHome(seedHome);
     },
 
     /* ★ 核心攻坚：无推荐页时，直接把第 1 个分类作为首页拉取数据，焦点图自动展示前 8 部影片 */
-    async loadHome() {
+    async loadHome(seedHome) {
       this.loading = true; this.errorMsg = ''; this.folderStack = [];
       try {
-        const res = await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
+        const res = seedHome || await callNative('getHomeContentAsync', this.sourceType, this.currentSite);
         let rawClasses = (res.class || res.classes || []).map(c => Object.assign({}, c, {
           type_id: c.type_id || c.typeId || '',
           type_name: c.type_name || c.typeName || ''
