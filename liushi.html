@@ -154,7 +154,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-inset, 0px) + 12px);}
 .scroll-area::-webkit-scrollbar{display:none;}
 /* 2026-10-14：下拉刷新提示——固定定位脱离文档流，出现/消失零布局抖动 */
-.pull-hint{position:fixed;top:88px;left:0;right:0;text-align:center;z-index:59;pointer-events:none;}
+.pull-slot{position:relative;overflow:visible;}
+/* 2026-10-14 用户定：松手/刷新结束槽位回弹归零，过渡让「页面回到顶部」有动画 */
+.pull-slot--anim{transition:height .34s cubic-bezier(.22,.9,.34,1.05);}
+/* 提示嵌在槽位（让出的空白）里，垂直水平都居中 */
+.pull-hint{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:60;pointer-events:none;}
 .pull-hint-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;font-size:12px;color:var(--text-sub);background:rgba(18,18,20,.88);border-radius:20px;border:1px solid rgba(255,255,255,.1);}
 .pull-hint-pill i{font-size:11px;}
 
@@ -399,8 +403,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   <!-- 分类栏已移入浮动「全部源」面板（showCatModal） -->
 
     <!-- 下拉刷新提示（2026-10-14 用户定：仅页面顶部受理；2018 修：紧凑固定定位，不用 backdrop-filter/滤镜，放在滚动容器外避免被 transform/overflow 截断） -->
-    <div class="pull-hint" v-if="pullY>0"><span class="pull-hint-pill"><i class="fas fa-rotate" :class="{'fa-spin':pullState==='go'}"></i>{{pullText()}}</span></div>
   <div class="scroll-area" ref="scrollContainer" @scroll="handleGridScroll" @touchstart="handleTouchStart" @touchmove="handlePullMove" @touchend="handleTouchEnd">
+    <!-- 2026-10-14 用户定：下拉刷新整页下移——槽位高度=下拉距离，把「推荐卡以下整个页面」往下顶，提示嵌在让出的空白里居中；松手槽位回弹归零（页面回到顶部）同时执行刷新 -->
+    <div class="pull-slot" :class="{'pull-slot--anim':!pullLive}" :style="{height:pullY+'px'}">
+      <div class="pull-hint" v-if="pullY>0"><span class="pull-hint-pill"><i class="fas fa-rotate" :class="{'fa-spin':pullState==='go'}"></i>{{pullText()}}</span></div>
+    </div>
         <!-- 沉浸式全宽焦点图：封面平铺整屏，自动循环切换 -->
     <div class="hero-wrap" v-if="topBanners.length>0 && t!=='__search__' && theme.layout!=='list_text'">
       <div class="hero-card" @click="clickCard(topBanners[heroIdx])">
@@ -612,7 +619,7 @@ window.__onNativeError = (id, err) => {
       const m2 = p.match(/\/lib\/icons\/(ic1_[\w.-]+\.png)(?:\?.*)?$/);
       if (m2) return __PIC_BASE + m2[1];
     }
-    if (p && p.indexOf('http://') === 0) p = '';
+    p = __picScheme(p);   // 2026-10-14：http 封面不再抹空，见 __picScheme
     if (p) return p;
     const n = String(name || '');
     for (const e of __PIC_MAP) {
@@ -621,11 +628,21 @@ window.__onNativeError = (id, err) => {
     return __PIC_BASE + __PIC_POOL[__picHash(n) % __PIC_POOL.length];
   }
   // 2026-10-14 用户定：内容条目不再自动匹配 icons——空图/死图留空（卡片底色），存量 icons URL 剥掉
+  // 2026-10-14 用户反馈「很多源没封面」真因：
+  //   外部 http:// 封面在 https 页（GitHub Pages）里被 mixed-content 策略拦截 → 加载失败；
+  //   壳子本机文件代理（PHP 聚合防盗链缓存落地后返回的 http://127.0.0.1:<port>/file/mlz/cache/hdlink/...）
+  //   之前被「一刀切抹空」误伤 → PHP 系源整屏黑卡。
+  // 规则：① 回环地址 127.0.0.1/localhost/0.0.0.0 —— Chrome/WebView 视为「潜在可信」，https 页里不被拦 → 原样保留；
+  //       ② 外部 http:// 图床 —— 升级 https（多数图床支持 TLS；不支持则 onImgErr 兜底留空，不闪图标）。
+  function __picScheme(p) {
+    if (p.indexOf('http://') !== 0) return p;
+    if (/^http:\/\/(127\.0\.0\.1|localhost|0\.0\.0\.0)\b/.test(p)) return p;
+    return p.replace(/^http:\/\//, 'https://');
+  }
   function __picContent(pic) {
     let p = String(pic || '');
     if (/lib\/icons\/ic1_[\w.-]+\.png/.test(p) || p.indexOf('177.jpg') >= 0) return '';
-    if (p.indexOf('http://') === 0) return '';
-    return p;
+    return __picScheme(p);
   }
 
   async function callNative(func, ...args) {
@@ -706,8 +723,6 @@ async function fmReady() {
   }
 }
 
-createApp({
-  data() {
 // 排版布局自行持久化：壳子只把主题键回灌 {{__THEME_KEY__}}，layout 没有回灌通道，
 // 且 applyTheme 里的 saveUserPreference 只被壳子当偏好存档、不回传页面 → layoutMode 若硬编码，
 // 每次重开首页/重进抽屉都会退回默认「2列海报」。故与主题键分开落 localStorage。
@@ -718,6 +733,9 @@ function loadLayout() {
   catch (e) { return 'compact'; }
 }
 function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } catch (e) {} }
+
+createApp({
+  data() {
     const ik = '{{__THEME_KEY__}}';
     const il = '{{__LAYOUT_MODE__}}';
     return {
@@ -730,7 +748,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       folderStack:[], homeTid:'', homeCache:[], showThemeDrawer:false, showCatModal:false, catGroupSel:'全部', showHistoryPanel:false, historyList:[], showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'', navHidden:false, lastScrollTop:0,
       themeKey: (PRESET_THEMES[ik] && ik.indexOf('{{') < 0 ? ik : 'pornhub'),
       layoutMode: loadLayout(),
-      touchStartX:0, touchStartY:0, pullY:0, pullState:'' , refreshing:false, _ptTop:false
+      touchStartX:0, touchStartY:0, pullY:0, pullState:'' , refreshing:false, _ptTop:false, pullLive:false
     };
   },
   computed: {
@@ -1128,19 +1146,6 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       } catch (e) { return false; }
     },
 
-    async refreshCurrent() {
-      if (this.t === '__search__') {
-        if (this.searchWord && this.searchWord.trim()) this.doSearch();
-        return;
-      }
-      // 2026-10-13：空态兜底。无当前分类 / 无分类列表 / __home__ 且推荐缓存空 → 必须重拉 HOME。
-      // 直接 fetchCategoryData 对空 tid 或已失效的 v2 签名引用无效，点了永远没反应。
-      if (!this.t || !this.categories.length || (this.t === '__home__' && (!this.homeCache || !this.homeCache.length))) {
-        this._bootSeq = (this._bootSeq || 0) + 1;
-        return this.loadHome();
-      }
-      await this.fetchCategoryData(this.t, 1, false);
-    },
     /* 空态诊断行：把关键状态印在「暂无内容」下方，便于真机截图定位；正常有内容时不渲染。 */
     __diag() {
       try {
@@ -1273,11 +1278,12 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
     handlePullMove(e) {
       if (!this._ptTop || !this.touchStartY || !e.touches || e.touches.length !== 1) return;
       const el = this.$refs.scrollContainer;
-      if (!el || el.scrollTop > 1) { this.pullY = 0; return; }
+      if (!el || el.scrollTop > 1) { this.pullY = 0; this.pullLive = false; return; }
       const dy = e.touches[0].clientY - this.touchStartY;
       const dx = Math.abs(e.touches[0].clientX - this.touchStartX);
-      if (dy <= 0 || dx > dy) { this.pullY = 0; return; }
-      this.pullY = Math.min(72, dy * 0.55);
+      if (dy <= 0 || dx > dy) { this.pullY = 0; this.pullLive = false; return; }
+      this.pullY = Math.min(84, dy * 0.55);
+      this.pullLive = true;   // 拖拽中槽位紧贴手指，不加过渡
       this.pullState = this.pullY >= 48 ? 'ready' : 'pull';
     },
     pullText() {
@@ -1285,26 +1291,40 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       if (this.pullY >= 48) return '松开刷新';
       return '下拉刷新';
     },
-    /* 下拉刷新当前界面：仅 _ptTop 为真（页面顶部）才执行。
-       推荐/首页→重拉 HOME（推荐位+封面缓存），其余→重拉本页第 1 页。 */
-    async refreshCurrent() {
-      if (!this._ptTop) return;                          // 顶部硬闸门
+    /* 刷新当前界面（下拉手势 / 点击重试 / 点击当前高亮分类 三入口合一）。
+       2026-10-14 修：旧版此方法在同一 options 对象里定义了两次——后定义的整体盖掉前定义
+       （「点击重试」的空态兜底、「点击当前分类刷新」全死），且 `if (!this._ptTop) return` 闸门放错位置：
+       handleTouchEnd 调它之前已把 _ptTop 置为 false，闸门恒真 → 下拉刷新一次都没真正执行过。
+       现在顶部闸门只作用于下拉路径（fromPull=true 且 _ptTop 由手势判定），按钮/分类入口不再受顶部限制。 */
+    async refreshCurrent(opts) {
+      const fromPull = opts && opts.fromPull;
+      if (fromPull && !(opts.verified || this._ptTop)) return;   // 顶部硬闸门：下拉路径必须已由 handleTouchEnd 判定顶部（2026-10-14 用户定：只在页面顶部受理）
       if (this.refreshing || this.loading || this.loadingMore) return;
-      if (String(this.t) === '__search__') return;        // 搜索输入态无列表可刷
-      this.refreshing = true; this.pullState = 'go'; this.pullY = 22;
+      this.refreshing = true; this.pullState = 'go'; this.pullY = 24; this.pullLive = false;
       this._rtSeq = (this._rtSeq || 0) + 1;               // 掐掉在飞的自动重试，防旧结果覆盖刷新
       try {
-        if (String(this.t) === '__home__' || String(this.t) === '__REC__') {
+        if (String(this.t) === '__search__') {            // 搜索态：重跑当前关键词
+          if (this.searchWord && this.searchWord.trim()) this.doSearch();
+        } else if (!this.t || !this.categories.length ||
+                   (String(this.t) === '__home__' && (!this.homeCache || !this.homeCache.length))) {
+          // 2026-10-13 空态兜底：无当前分类/分类列表空/推荐缓存空时 fetchCategoryData 无效，必须重拉 HOME
+          this._bootSeq = (this._bootSeq || 0) + 1;
           await this.loadHome();
+        } else if (String(this.t) === '__home__' || String(this.t) === '__REC__') {
+          await this.loadHome();                          // 推荐/首页：重拉推荐位+封面
         } else {
           this.pg = 1; this.hasMore = true; this.heroIdx = 0;
           await this.fetchCategoryData(this.t, 1, false);
         }
       } catch (e) { }
-      finally { this.refreshing = false; this.pullY = 0; this.pullState = ''; }
+      finally {
+        this.refreshing = false; this.pullY = 0; this.pullState = ''; this.pullLive = false;
+        // 2026-10-14 用户定：松手后页面回到顶部
+        try { const _s = this.$refs.scrollContainer; if (_s) _s.scrollTop = 0; } catch (e) {}
+      }
     },
     handleTouchStart(e) {
-      if (e.target && e.target.closest('.site-row,.theme-btn,.filter-fab,.bn-item,.ss-box')) { this.touchStartX = 0; this.pullY = 0; this._ptTop = false; return; }
+      if (e.target && e.target.closest('.site-row,.theme-btn,.filter-fab,.bn-item,.ss-box')) { this.touchStartX = 0; this.pullY = 0; this._ptTop = false; this.pullLive = false; return; }
       if (e.touches && e.touches.length === 1) { this.touchStartX = e.touches[0].clientX; this.touchStartY = e.touches[0].clientY; this.pullY = 0;
         // 2026-10-14 用户定：下拉刷新只在页面顶部受理——触摸起点必须在顶部（scrollTop<=1）
         const _el0 = this.$refs.scrollContainer; this._ptTop = !!_el0 && _el0.scrollTop <= 1;
@@ -1316,8 +1336,8 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       const dy = e.changedTouches[0].clientY - this.touchStartY;
       this.touchStartX = 0; this.touchStartY = 0;
       const _top = this._ptTop; this._ptTop = false;
-      const py = this.pullY; this.pullY = 0; this.pullState = '';
-      if (_top && py >= 48) this.refreshCurrent();
+      const py = this.pullY; this.pullY = 0; this.pullState = ''; this.pullLive = false;
+      if (_top && py >= 48) this.refreshCurrent({fromPull: true, verified: true});   // 顶部已由 _top 判定，放行闸门
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
         if (this.categories.length <= 1) return;
         const idx = this.categories.findIndex(c => String(c.type_id) === String(this.curTabId));
@@ -1333,7 +1353,7 @@ function saveLayout(m) { try { localStorage.setItem('gyz_layout', String(m)); } 
       if (d > 6 && st > 80) this.navHidden = true;
       else if (d < -6) this.navHidden = false;
       this.lastScrollTop = st;
-      if (st > 1) { this.pullY = 0; this._ptTop = false; }
+      if (st > 1) { this.pullY = 0; this._ptTop = false; this.pullLive = false; }
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) this.loadNextPage();
     },
     async loadNextPage() {
