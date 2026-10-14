@@ -304,7 +304,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .filter-chip.active{background:var(--accent);color:var(--accent-text);font-weight:700;border-color:transparent;}
 
 /* 分类全屏弹窗 */
-.cat-sheet{width:100%;height:82vh;background:var(--panel-bg);border-top:1.5px solid var(--accent);border-radius:22px 22px 0 0;padding:18px 18px calc(26px + var(--nav-inset,0px)) 18px;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,0.5);}
+.overlay.cat-ov{align-items:flex-end;padding:0 0 calc(var(--nav-inset,0px) + 8px) 0;}
+.cat-sheet{width:100%;height:auto;max-height:calc(82vh - var(--nav-inset,0px));background:var(--panel-bg);border:1px solid var(--line);border-radius:22px;padding:18px 18px 20px 18px;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,0.5);}
 .cat-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:52px;gap:10px;padding:4px 2px 30px 2px;}
 .cat-grid::-webkit-scrollbar{display:none;}
 .cat-grid-item{height:52px;display:flex;align-items:center;justify-content:center;padding:0 8px;background:var(--pill-bg);border:1px solid var(--line);border-radius:10px;font-size:14px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
@@ -505,7 +506,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   </div>
 
   <!-- 分类全屏弹窗 -->
-  <div class="overlay" v-if="showCatModal" @click.self="showCatModal=false">
+  <div class="overlay cat-ov" v-if="showCatModal" @click.self="showCatModal=false">
     <div class="cat-sheet">
       <div class="drawer-head">
         <span class="t"><i class="fas fa-th-large"></i> 全部源 ({{panelSources.length}})</span>
