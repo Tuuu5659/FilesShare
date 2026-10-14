@@ -145,8 +145,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-inset, 0px) + 12px);}
 .scroll-area::-webkit-scrollbar{display:none;}
 /* 2026-10-14：下拉刷新提示——固定定位脱离文档流，出现/消失零布局抖动 */
-.pull-hint{position:fixed;left:0;right:0;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:98px;z-index:60;pointer-events:none;}
-.pull-hint-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;font-size:12px;color:var(--text-sub);background:rgba(18,18,20,.88);border-radius:20px;backdrop-filter:blur(6px);}
+.pull-hint{position:fixed;top:88px;left:0;right:0;text-align:center;z-index:59;pointer-events:none;}
+.pull-hint-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;font-size:12px;color:var(--text-sub);background:rgba(18,18,20,.88);border-radius:20px;border:1px solid rgba(255,255,255,.1);}
 .pull-hint-pill i{font-size:11px;}
 
 
@@ -411,6 +411,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 
   <!-- 分类栏已移入浮动「全部源」面板（showCatModal） -->
 
+    <!-- 下拉刷新提示（2026-10-14 用户定：仅页面顶部受理；2018 修：紧凑固定定位，不用 backdrop-filter/滤镜，放在滚动容器外避免被 transform/overflow 截断） -->
+    <div class="pull-hint" v-if="pullY>0"><span class="pull-hint-pill"><i class="fas fa-rotate" :class="{'fa-spin':pullState==='go'}"></i>{{pullText()}}</span></div>
   <div class="scroll-area" ref="scrollContainer" @scroll="handleGridScroll" @touchstart="handleTouchStart" @touchmove="handlePullMove" @touchend="handleTouchEnd">
         <!-- 沉浸式全宽焦点图：封面平铺整屏，自动循环切换 -->
     <div class="hero-wrap" v-if="topBanners.length>0 && t!=='__search__' && theme.layout!=='list_text'">
@@ -449,8 +451,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <div class="ld-txt">{{ldText}}</div>
       <div class="ld-bar"><i class="ld-fill"></i><i class="ld-fill ld-fill2"></i></div>
     </div>
-<!-- 2026-10-14：下拉刷新提示（所有界面通用；固定定位不占布局） -->
-    <div class="pull-hint" v-if="pullY>0"><span class="pull-hint-pill"><i class="fas fa-rotate" :class="{fa-spin:pullState==='go'}"></i>{{pullText()}}</span></div>
 <!-- 卡片列表 -->
     <div class="grid" :class="['layout-'+theme.layout, slideDir]" :key="gridKey">
       <div v-for="v in gridItems" :key="v.vod_id" class="card" @click="clickCard(v)">
