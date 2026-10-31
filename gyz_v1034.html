@@ -762,9 +762,12 @@ window.__onNativeError = (id, err) => {
   // 规则：① 回环地址 127.0.0.1/localhost/0.0.0.0 —— Chrome/WebView 视为「潜在可信」，https 页里不被拦 → 原样保留；
   //       ② 外部 http:// 图床 —— 升级 https（多数图床支持 TLS；不支持则 onImgErr 兜底留空，不闪图标）。
   function __picScheme(p) {
-    // 2026-10-31 修正：保持 http 原样。壳子 WebView 允许 mixed content（默认皮肤能加载 http 封面），
-    // 作者升级 http->https 反而弄坏 http-only 图床（黑卡真因）。
-    return p;
+    // 恢复作者升级 http->https：皮肤 WebView 不允许 mixed content（https 页面拦 http 图），
+    // 图床支持 https（用户之前皮肤正常）。回环地址(127.0.0.1/localhost)保留 http（WebView 视为潜在可信）。
+    // https 加载失败时 onImgErr 会回退原始 http 一次（兼容 http-only 图床，若 WebView 放行则成功）。
+    if (p.indexOf('http://') !== 0) return p;
+    if (/^http:\/\/(127\.0\.0\.1|localhost|0\.0\.0\.0)\b/.test(p)) return p;
+    return p.replace(/^http:\/\//, 'https://');
   }
   function __picContent(pic) {
     let p = String(pic || '');
@@ -1531,11 +1534,12 @@ createApp({
       const el = e && e.target;
       if (!el) return;
       if (el.dataset.mlzErr === '2') return;
-      // 2026-10-31：http 封面仍失败 -> 试 https 一次
-      if (rawPic && String(rawPic).indexOf('http://') === 0 && String(el.src || '').indexOf('http://') === 0 && !el.dataset.retryHttps) {
-        el.dataset.retryHttps = '1';
+      // 2026-10-31：__picScheme 已把 http 升级 https（皮肤 WebView 拦 http mixed content）；
+      // 若 https 仍失败（http-only 图床）且原始是 http -> 回退 http 试一次（兼容 http-only，若 WebView 放行则成功）
+      if (rawPic && String(rawPic).indexOf('http://') === 0 && String(el.src || '').indexOf('https://') === 0 && !el.dataset.retryHttp) {
+        el.dataset.retryHttp = '1';
         el.onerror = null;
-        el.src = String(rawPic).replace(/^http:\/\//, 'https://');
+        el.src = String(rawPic);
         return;
       }
       if (isFolder === false) { el.dataset.mlzErr = '2'; el.onerror = null; el.style.visibility = 'hidden'; return; }   // 内容条目：不补 icons，留空（2026-10-14 用户定）
