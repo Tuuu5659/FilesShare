@@ -672,6 +672,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
       <span class="t"><i class="msr">&#xe8b8;</i> 设置 · 外观与排版</span>
       <i class="msr">&#xe14c;</i>
     </div>
+    <div style="background:rgba(255,152,0,.10);border:1px solid rgba(255,152,0,.45);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:11px;line-height:1.7;color:#ffb74d;word-break:break-all;">
+      <div style="font-weight:700;color:#ff9800;margin-bottom:4px;">封面诊断 v1036</div>
+      <div v-if="diagInfo" style="white-space:pre-wrap">{{diagInfo}}</div>
+      <div v-else>诊断采集中…</div>
+      <div style="margin-top:8px;"><span @click="runDiag" style="display:inline-block;padding:4px 12px;border:1px solid rgba(255,152,0,.5);border-radius:999px;font-size:11px;">重新采集</span></div>
+    </div>
     <div class="theme-sec"><i class="msr">&#xe9b0;</i> 排版布局</div>
     <div class="theme-grid">
       <div class="theme-btn" :class="{active:theme.layout==='poster'}" @click="setLayout('poster')"><i class="msr">&#xe9b0;</i> 3列海报</div>
@@ -879,7 +885,7 @@ createApp({
       sourceType:'host', activeTab:'host', subTab:'selected',
       hostSites:[], pySites:[], jsSites:[], cjSites:[], xlSites:[],
       currentSite:'', currentSiteName:'', categories:[], list:[], t:'',
-      heroIdx:0, loading:true, errorMsg:''   /* 2026-10-13：初始即加载态，避免 mounted→loadHome 间隙闪空 */, showModal:false, searchKw:'',
+      heroIdx:0, loading:true, errorMsg:''   /* 2026-10-13：初始即加载态，避免 mounted→loadHome 间隙闪空 */, diagInfo:'', showModal:false, searchKw:'',
       excludedSites:{}, allFilters:{}, selectedFilters:{}, showFilter:false,
       searchWord:'', searchKeyword:'', searchDone:false, pg:1, pagecount:999, hasMore:true, loadingMore:false,
       singleMode:false, folderStack:[], homeTid:'', homeCache:[], showThemeDrawer:false, showCatModal:false, catGroupSel:'全部', showHistoryPanel:false, historyList:[], showSearchBar:false, lastBackTs:0, slideDir:'from-right', baseTab:'', navHidden:false, lastScrollTop:0, hdCollapsed:false,
@@ -1806,6 +1812,34 @@ navBack() { this.goBackCore(); },
     },
 
     /* ★ 核心攻坚：无推荐页时，直接把第 1 个分类作为首页拉取数据，焦点图自动展示前 8 部影片 */
+    runDiag() {
+      try {
+        var li = (this.list || []).filter(x => x && x.vod_pic);
+        var first = li[0] || (this.homeCache || []).filter(x => x && x.vod_pic)[0] || null;
+        var raw = first ? String(first._rawPic || first.vod_pic || '') : '';
+        var shown = first ? String(first.vod_pic || '') : '';
+        var meta = document.querySelector('meta[name="referrer"]');
+        var t = '页面: ' + location.href +
+          '\n协议: ' + location.protocol +
+          '\nreferrer-meta: ' + (meta ? (meta.content || '?') : '无(已删)') +
+          '\nUA: ' + (navigator.userAgent || '').slice(0, 70) +
+          '\n卡片总数: ' + (this.list || []).length + ' / 有图: ' + (this.list || []).filter(x => x && x.vod_pic).length +
+          '\n原始URL: ' + (raw || '(无)') +
+          '\n渲染URL: ' + (shown || '(无)') +
+          '\nimg标签数: ' + document.querySelectorAll('.card img').length +
+          '\n隐藏img数: ' + [...document.querySelectorAll('.card img')].filter(i => i.style.visibility === 'hidden').length +
+          '\n零宽img数: ' + [...document.querySelectorAll('.card img')].filter(i => !i.naturalWidth).length;
+        this.diagInfo = t + '\n主动测试: 加载中…';
+        if (!shown) { this.diagInfo = t + '\n主动测试: 无图可测'; return; }
+        var self = this;
+        var im = new Image();
+        im.onload = function () { self.diagInfo = t + '\n主动测试: 成功 ' + im.naturalWidth + 'x' + im.naturalHeight; };
+        im.onerror = function () { self.diagInfo = t + '\n主动测试: 失败(ERROR)'; };
+        im.referrerPolicy = 'no-referrer-when-downgrade';
+        im.src = shown;
+        setTimeout(function () { if (self.diagInfo.indexOf('主动测试: 加载中') >= 0) self.diagInfo = t + '\n主动测试: 超时(8s)'; }, 8000);
+      } catch (e) { this.diagInfo = '诊断异常: ' + e.message; }
+    },
     async loadHome(seedHome) {
       this.loading = true; this.errorMsg = ''; this.folderStack = []; this.singleMode = false;
       try {
@@ -1825,6 +1859,7 @@ navBack() { this.goBackCore(); },
         }
         this.allFilters = _af;
         const homeRecommend = this.normalizeList(res);
+        setTimeout(() => { try { this.runDiag(); } catch (e) {} }, 1200);
         if (res && res.source && res.source.name) this.currentSiteName = res.source.name;
 
         // 0. 单源模式：HOME 只返回 1 个源名 → 拉该源子分类（📁文件夹卡）提升为顶部 tab
